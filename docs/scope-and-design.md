@@ -13,7 +13,30 @@
 - **阈值设置面板**: 16 个参数的 🟢🟡🔴 颜色边界可通过 UI 实时调整（详见 `docs/thresholds.md`）
 - **Logo**: 从 https://www.land-energy.com/ 获取，放置在 Dashboard 左上角
 
-### 1.2 Page 1 — 运营监控 (Operational Overview)
+### 1.2 Page 1 — KPI 总览 (`/`)
+
+> 首页 Landing Page，大字体 KPI 卡片，一眼总览工厂状态。
+
+**4 大类 KPI 卡片 (共 12 张)**:
+
+| 分类 | 卡片 1 | 卡片 2 | 卡片 3 | 卡片 4 |
+|------|--------|--------|--------|--------|
+| Production | Daily Output (t) | Hourly Rate (t/h) | Mills Running (x/3) | Period Total (t) |
+| Energy | Turbine Power (kW) | Furnace Temp (°C) | Thermal Oil OUT (°C) | HRU Bypass (%) |
+| Dryer | Dryer Feed (t/h) | Outlet Moisture (%) | Dry Silo 1 (%) | Dry Silo 2 (%) |
+
+**Quality 2×3 网格** (5 个指标):
+- Row 1: Durability % | Bulk Density g/l | Pellet Moisture %
+- Row 2: Pellet Temp °C | Avg Length mm | (空)
+- 注: Pellet Fines % 在 CSV 中无此列，已去掉
+
+**设计要求**:
+- KPI 数值字体 ≥ 52px，2 米外可读
+- 左侧彩色边框表示阈值状态 (🟢🟡🔴)
+- Quality 网格每格带颜色边框
+- DateRange 联动刷新全部卡片
+
+### 1.3 Page 2 — Detailed Operations (`/ops`)
 
 **顶栏**:
 - Land Energy Logo + 工厂名 "Girvan Pellet Plant"
@@ -72,10 +95,10 @@
 - **停机时间按 Area 柱状图**: 汇总各区域停机分钟数
 
 **底部全数据表**:
-- Shift_Protocol 全部 64 列，可滚动、可排序、可筛选
+- Shift_Protocol 全部 52 列（去除空白和损坏列后），可滚动、可排序、可筛选
 - 列名保持 CSV 英文原名（不翻译）
 
-### 1.3 Page 2 — AI Analytics (Placeholder)
+### 1.4 Page 3 — AI Analytics Placeholder (`/ai`)
 
 标题: "AI Predictive Analytics — Coming Soon"
 
@@ -99,7 +122,7 @@
 
 - 生产环境部署 / 云端托管
 - 真实 SCADA / PLC 数据接入
-- 真实 AI/ML 模型训练与推理（Page 2 仅占位）
+- 真实 AI/ML 模型训练与推理（Page 3 / AI 仅占位）
 - **OEE 综合指标计算**（不做 Availability × Performance × Quality）
 - 用户认证 / 多角色权限
 - 移动端响应式适配（Desktop 优先即可）

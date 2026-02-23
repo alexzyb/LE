@@ -10,13 +10,14 @@ from pathlib import Path
 
 import pandas as pd
 import dash
-from dash import dcc, html, dash_table, Input, Output, State, callback_context
+from dash import dcc, html, dash_table, Input, Output, State, callback_context, ALL
 import dash_bootstrap_components as dbc
 
 SRC_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SRC_DIR))
 
-from config import COLOR_SCHEME, DEFAULT_THRESHOLDS
+from config import (COLOR_SCHEME, DEFAULT_THRESHOLDS, THRESHOLD_GROUPS,
+                    get_thresholds, save_thresholds, reset_thresholds)
 from translations import t, DEFAULT_LANG
 import data as _data
 import charts as _charts
@@ -66,7 +67,7 @@ def threshold_color(key, value):
         return "grey"
     if pd.isna(v):
         return "grey"
-    p = DEFAULT_THRESHOLDS.get(key, {})
+    p = get_thresholds().get(key, {})
     mode = p.get("mode", "")
     if mode == "dual":
         if v < p["red_low"] or v > p["red_high"]:   return "red"
@@ -222,7 +223,7 @@ def _mill_status(df, lang):
             html.Span(
                 f"\u2002Mill\u202f{i}\u2002{status}\u2002|\u2002{amp_str}",
                 style={"color": clr, "fontFamily": "Roboto Mono, monospace",
-                       "fontSize": "13px", "marginLeft": "4px"},
+                       "fontSize": "15px", "marginLeft": "4px"},
             ),
         ], style={"marginBottom": "6px"}))
     return html.Div(items, style={"marginBottom": "10px"})
@@ -230,10 +231,11 @@ def _mill_status(df, lang):
 
 def _quality_cards(df, lang):
     """4 quality metric tiles with threshold border colours."""
+    _thresh = get_thresholds()
     def qclr(key, val):
         if val is None:
             return CS["subtext"]
-        p = DEFAULT_THRESHOLDS.get(key, {})
+        p = _thresh.get(key, {})
         m = p.get("mode", "")
         v = float(val)
         if m == "lower":
@@ -249,13 +251,13 @@ def _quality_cards(df, lang):
         val_str = f"{val:.1f}" if val is not None else "\u2014"
         return dbc.Col(
             html.Div([
-                html.P(label, style={"fontSize": "10px", "color": CS["subtext"],
+                html.P(label, style={"fontSize": "12px", "color": CS["subtext"],
                                      "textTransform": "uppercase",
                                      "letterSpacing": "0.8px", "margin": "0 0 4px 0"}),
-                html.Span(val_str, style={"fontSize": "30px", "fontWeight": "700",
+                html.Span(val_str, style={"fontSize": "36px", "fontWeight": "700",
                                           "fontFamily": "Roboto Mono, monospace",
                                           "color": clr}),
-                html.Span(f"\u202f{unit}", style={"fontSize": "13px",
+                html.Span(f"\u202f{unit}", style={"fontSize": "16px",
                                                    "color": CS["subtext"]}),
             ], style={
                 "textAlign": "center", "padding": "12px 8px",
@@ -296,7 +298,7 @@ def _events_table(events_df):
     return dash_table.DataTable(
         columns=[{"name": c, "id": c} for c in show.columns],
         data=show.to_dict("records"),
-        style_table={"overflowX": "auto", "fontSize": "11px"},
+        style_table={"overflowX": "auto", "fontSize": "13px"},
         style_header={"backgroundColor": "#0f3460", "color": CS["text"],
                       "fontWeight": "bold", "border": f"1px solid {CS['border']}"},
         style_data={"backgroundColor": CS["card"], "color": CS["text"],
@@ -327,7 +329,7 @@ def _full_data_table(df):
         page_size=20,
         sort_action="native",
         filter_action="native",
-        style_table={"overflowX": "auto", "fontSize": "10px", "minWidth": "100%"},
+        style_table={"overflowX": "auto", "fontSize": "13px", "minWidth": "100%"},
         style_header={"backgroundColor": "#0f3460", "color": CS["text"],
                       "fontWeight": "bold", "border": f"1px solid {CS['border']}",
                       "whiteSpace": "nowrap"},
@@ -341,7 +343,160 @@ def _full_data_table(df):
         fixed_rows={"headers": True},
     )
 
-# ─── Page 1 layout ────────────────────────────────────────────────────────────
+# ─── Overview page (new P1) ───────────────────────────────────────────────────
+
+def _ov_card(label, value, unit, color="grey"):
+    """Large KPI card for the overview page."""
+    return dbc.Col(
+        html.Div([
+            html.P(label, className="overview-card-label"),
+            html.Div([
+                html.Span(value, className="overview-card-value",
+                          style={"color": _HEX.get(color, CS["text"])}),
+                html.Span(f"\u202f{unit}", className="overview-card-unit") if unit else None,
+            ]),
+        ], className="overview-card",
+           style={"borderLeft": f"4px solid {_HEX.get(color, CS['border'])}"}),
+        md=3, sm=6, xs=6, className="mb-3",
+    )
+
+
+def _ov_quality_cell(label, value, unit, color="grey"):
+    """Single cell in the quality grid."""
+    clr = _HEX.get(color, CS["subtext"])
+    return html.Div([
+        html.P(label, className="quality-grid-label"),
+        html.Div([
+            html.Span(value, className="quality-grid-value",
+                      style={"color": clr}),
+            html.Span(f"\u202f{unit}", className="quality-grid-unit"),
+        ]),
+    ], className="quality-grid-cell",
+       style={"border": f"1px solid {clr}"})
+
+
+def overview_layout(lang, start_date, end_date):
+    """P1: High-level KPI cards + Quality grid."""
+    df = _data.get_shift_df(start_date, end_date)
+
+    # ── helpers ───────────────────────────────────────────────────────────────
+    def _fmt(val, decimals=1):
+        if val is None:
+            return "\u2014"
+        return f"{val:,.{decimals}f}"
+
+    def _latest(col):
+        return _latest_val(df, col)
+
+    # ── PRODUCTION ────────────────────────────────────────────────────────────
+    # Daily output (cumulative delta for latest day)
+    cum_col = "Total Pellets passed belt weigher (cumlative)"
+    daily_out = None
+    if not df.empty and cum_col in df.columns and "Date Time" in df.columns:
+        df_dt = df.copy()
+        df_dt["Date Time"] = pd.to_datetime(df_dt["Date Time"], errors="coerce")
+        last_day = df_dt["Date Time"].dropna().max()
+        if last_day is not None:
+            day_df = df_dt[df_dt["Date Time"].dt.date == last_day.date()]
+            vals = day_df[cum_col].dropna()
+            if len(vals) >= 2:
+                daily_out = round(float(vals.iloc[-1]) - float(vals.iloc[0]), 1)
+
+    # Period cumulative
+    period_out = None
+    if not df.empty and cum_col in df.columns:
+        vals = df[cum_col].dropna()
+        if len(vals) >= 2:
+            period_out = round(float(vals.iloc[-1]) - float(vals.iloc[0]), 0)
+
+    rate = _latest("Total tons passed belt weigher (hour)")
+    rate_clr = threshold_color("belt_weigher_hourly", rate)
+
+    mills_ok = 0
+    for c in ["Press 1 - Load Amps", "Press 2 - Load Amps", "Press 3 - Load Amps"]:
+        v = _latest(c)
+        if v is not None and v > 50:
+            mills_ok += 1
+    mills_clr = "green" if mills_ok == 3 else ("yellow" if mills_ok > 0 else "red")
+
+    prod_section = html.Div([
+        html.H6(t("cat_production", lang), className="overview-section-title"),
+        dbc.Row([
+            _ov_card(t("ov_daily_output", lang), _fmt(daily_out, 0), "t"),
+            _ov_card(t("ov_rate", lang),         _fmt(rate),         "t/h", rate_clr),
+            _ov_card(t("ov_mills", lang),         f"{mills_ok}/3",   "",    mills_clr),
+            _ov_card(t("ov_cumulative", lang),   _fmt(period_out, 0), "t"),
+        ]),
+    ], className="mb-2")
+
+    # ── ENERGY ────────────────────────────────────────────────────────────────
+    turbine  = _latest("Turbine Generated Power kW")
+    turb_clr = threshold_color("turbine_power", turbine)
+    furnace  = _latest("Furnace Temp")
+    furn_clr = threshold_color("furnace_temp", furnace)
+    thermal  = _latest("Thermal Oil OUT")
+    hru      = _latest("HRU Bypass Damper")
+
+    energy_section = html.Div([
+        html.H6(t("cat_energy", lang), className="overview-section-title"),
+        dbc.Row([
+            _ov_card(t("ov_turbine", lang),      _fmt(turbine, 0), "kW",  turb_clr),
+            _ov_card(t("ov_furnace_temp", lang), _fmt(furnace, 0), "\u00b0C", furn_clr),
+            _ov_card(t("ov_thermal_oil", lang),  _fmt(thermal, 0), "\u00b0C"),
+            _ov_card(t("ov_hru_bypass", lang),   _fmt(hru, 0),     "%"),
+        ]),
+    ], className="mb-2")
+
+    # ── DRYER ─────────────────────────────────────────────────────────────────
+    dryer_feed = _latest("Dryer out feed t/h")
+    dryer_clr  = threshold_color("dryer_out_feed", dryer_feed)
+    moisture   = _latest("Moisture %  Actual Value at Dryer Outlet")
+    moist_clr  = threshold_color("dryer_moisture_actual", moisture)
+    silo1      = _latest("Dry Silo 1 Level %")
+    silo2      = _latest("Dry Silo 2 Level %")
+
+    dryer_section = html.Div([
+        html.H6(t("cat_dryer", lang), className="overview-section-title"),
+        dbc.Row([
+            _ov_card(t("ov_dryer_feed", lang),      _fmt(dryer_feed), "t/h", dryer_clr),
+            _ov_card(t("ov_outlet_moisture", lang), _fmt(moisture),   "%",   moist_clr),
+            _ov_card(t("ov_dry_silo_1", lang),      _fmt(silo1, 0),  "%"),
+            _ov_card(t("ov_dry_silo_2", lang),      _fmt(silo2, 0),  "%"),
+        ]),
+    ], className="mb-2")
+
+    # ── QUALITY (2×3 grid) ────────────────────────────────────────────────────
+    dur  = _latest("Durability %")
+    dens = _latest("Bulk  Density g/l")
+    pmoi = _latest("Pellet Moisture %")
+    ptmp = _latest("Temp of Pellets at cooler")
+    plen = _latest("Average Pellet Length(mm)")
+
+    dur_clr  = threshold_color("durability", dur)
+    dens_clr = threshold_color("bulk_density", dens)
+    pmoi_clr = threshold_color("pellet_moisture_finished", pmoi)
+    plen_clr = threshold_color("avg_pellet_length", plen)
+
+    quality_section = html.Div([
+        html.H6(t("cat_quality", lang), className="overview-section-title"),
+        html.Div([
+            _ov_quality_cell(t("ov_durability", lang),       _fmt(dur),  "%",   dur_clr),
+            _ov_quality_cell(t("ov_density", lang),          _fmt(dens, 0), "g/l", dens_clr),
+            _ov_quality_cell(t("ov_pellet_moisture", lang),  _fmt(pmoi), "%",   pmoi_clr),
+            _ov_quality_cell(t("ov_pellet_temp", lang),      _fmt(ptmp, 0), "\u00b0C"),
+            _ov_quality_cell(t("ov_pellet_length", lang),    _fmt(plen, 0), "mm",  plen_clr),
+        ], className="quality-grid"),
+    ], className="mb-2")
+
+    return html.Div([
+        prod_section,
+        energy_section,
+        dryer_section,
+        quality_section,
+    ])
+
+
+# ─── Detailed ops page (P2) ──────────────────────────────────────────────────
 
 def page1_layout(lang, start_date, end_date):
     df        = _data.get_shift_df(start_date, end_date)
@@ -380,12 +535,12 @@ def page1_layout(lang, start_date, end_date):
                 # Big number: period cumulative output
                 html.Div([
                     html.P("Period Output [Col\u202f45\u202f\u0394]",
-                           style={"fontSize": "10px", "color": CS["subtext"],
+                           style={"fontSize": "12px", "color": CS["subtext"],
                                   "textTransform": "uppercase", "letterSpacing": "0.8px",
                                   "margin": "0 0 4px 0"}),
                     html.Div([
                         html.Span(period_str,
-                                  style={"fontSize": "42px", "fontWeight": "700",
+                                  style={"fontSize": "48px", "fontWeight": "700",
                                          "fontFamily": "Roboto Mono, monospace",
                                          "color": CS["text"]}),
                         html.Span("\u202ft", style={"fontSize": "18px",
@@ -467,7 +622,7 @@ def page1_layout(lang, start_date, end_date):
     ])
 
 
-# ─── Page 2 layout ────────────────────────────────────────────────────────────
+# ─── Page 3 / AI Placeholder layout ───────────────────────────────────────────
 
 def page2_layout(lang):
     def ai_panel(title, fake_text):
@@ -515,6 +670,7 @@ def page2_layout(lang):
 app.layout = html.Div([
 
     dcc.Store(id="store-lang", data=DEFAULT_LANG, storage_type="session"),
+    dcc.Store(id="store-thresh-ver", data=0),
     dcc.Location(id="url", refresh=False),
 
     # Top Bar
@@ -558,10 +714,16 @@ app.layout = html.Div([
                        title="Threshold Settings",
                        className="settings-btn ms-2", n_clicks=0),
             html.Div([
-                dcc.Link("P1", href="/",      className="page-link-btn"),
+                dcc.Link(id="nav-overview", children="Overview", href="/",
+                         className="page-link-btn"),
                 html.Span("\u00b7",
                           style={"color": CS["border"], "padding": "0 2px"}),
-                dcc.Link("P2", href="/page2", className="page-link-btn"),
+                dcc.Link(id="nav-detail", children="Detail", href="/ops",
+                         className="page-link-btn"),
+                html.Span("\u00b7",
+                          style={"color": CS["border"], "padding": "0 2px"}),
+                dcc.Link(id="nav-ai", children="AI", href="/ai",
+                         className="page-link-btn"),
             ], className="page-switcher ms-2"),
         ], className="topbar-right"),
     ], className="top-bar"),
@@ -570,19 +732,21 @@ app.layout = html.Div([
     dbc.Container(html.Div(id="page-content"), fluid=True,
                   className="main-content"),
 
-    # Settings modal (Phase 4 will fill controls)
+    # Settings modal
     dbc.Modal([
         dbc.ModalHeader(dbc.ModalTitle(id="modal-title",
                                        children="Threshold Settings")),
-        dbc.ModalBody(html.P(
-            "Threshold settings panel \u2014 Phase\u202f4.",
-            style={"color": CS["subtext"]},
-        )),
-        dbc.ModalFooter(
+        dbc.ModalBody(id="modal-body"),
+        dbc.ModalFooter([
+            dbc.Button(id="btn-reset-all", color="danger", outline=True,
+                       size="sm", children="Reset All", n_clicks=0,
+                       className="me-auto"),
+            dbc.Button(id="btn-save-thresh", color="success", size="sm",
+                       children="Save & Apply", n_clicks=0),
             dbc.Button("Close", id="btn-modal-close", color="secondary",
                        size="sm", n_clicks=0),
-        ),
-    ], id="modal-settings", size="xl", is_open=False),
+        ]),
+    ], id="modal-settings", size="xl", is_open=False, scrollable=True),
 
 ], style={"backgroundColor": CS["bg"], "minHeight": "100vh",
           "color": CS["text"]})
@@ -607,7 +771,12 @@ def update_language(_a, _b, _c):
     [Output("label-date-range", "children"),
      Output("btn-apply",        "children"),
      Output("modal-title",      "children"),
-     Output("btn-modal-close",  "children")],
+     Output("btn-modal-close",  "children"),
+     Output("nav-overview",     "children"),
+     Output("nav-detail",       "children"),
+     Output("nav-ai",           "children"),
+     Output("btn-save-thresh",  "children"),
+     Output("btn-reset-all",    "children")],
     Input("store-lang", "data"),
 )
 def update_topbar_labels(lang):
@@ -617,35 +786,144 @@ def update_topbar_labels(lang):
         t("btn_apply",      lang),
         t("settings_title", lang),
         "\u00d7\u2002Close",
+        t("nav_overview",   lang),
+        t("nav_detail",     lang),
+        t("nav_ai",         lang),
+        t("btn_save_apply", lang),
+        t("btn_reset_all",  lang),
     )
 
 
 @app.callback(
     Output("page-content", "children"),
-    [Input("url",        "pathname"),
-     Input("store-lang", "data"),
-     Input("btn-apply",  "n_clicks")],
+    [Input("url",              "pathname"),
+     Input("store-lang",       "data"),
+     Input("btn-apply",        "n_clicks"),
+     Input("store-thresh-ver", "data")],
     [State("date-picker", "start_date"),
      State("date-picker", "end_date")],
 )
-def render_page(pathname, lang, _n, start_date, end_date):
+def render_page(pathname, lang, _n, _tv, start_date, end_date):
     lang       = lang       or DEFAULT_LANG
     start_date = start_date or "2026-01-01"
     end_date   = end_date   or "2026-02-01"
-    if pathname == "/page2":
+    if pathname == "/ops":
+        return page1_layout(lang, start_date, end_date)
+    if pathname == "/ai":
         return page2_layout(lang)
-    return page1_layout(lang, start_date, end_date)
+    return overview_layout(lang, start_date, end_date)
 
 
 @app.callback(
     Output("modal-settings", "is_open"),
     [Input("btn-settings",    "n_clicks"),
-     Input("btn-modal-close", "n_clicks")],
+     Input("btn-modal-close", "n_clicks"),
+     Input("btn-save-thresh", "n_clicks"),
+     Input("btn-reset-all",   "n_clicks")],
     State("modal-settings", "is_open"),
     prevent_initial_call=True,
 )
-def toggle_settings(_a, _b, is_open):
-    return not is_open
+def toggle_settings(_a, _b, _c, _d, is_open):
+    trigger = callback_context.triggered[0]["prop_id"].split(".")[0]
+    if trigger == "btn-settings":
+        return not is_open
+    return False
+
+
+# ─── Settings Modal Builder ──────────────────────────────────────────────────
+
+_GROUP_I18N = {
+    "Mill": "group_mill", "Dryer": "group_dryer", "Quality": "group_quality",
+    "CHP": "group_chp", "Throughput": "group_throughput", "Other": "group_other",
+}
+
+_MODE_BOUNDS = {
+    "dual":  ["red_low", "green_min", "green_max", "red_high"],
+    "lower": ["red_below", "green_above"],
+    "upper": ["green_below", "red_above"],
+}
+
+_BOUND_LABELS = {
+    "red_low": "thresh_red_low", "green_min": "thresh_green_min",
+    "green_max": "thresh_green_max", "red_high": "thresh_red_high",
+    "red_below": "thresh_red_below", "green_above": "thresh_green_above",
+    "green_below": "thresh_green_below", "red_above": "thresh_red_above",
+}
+
+
+def build_settings_body(lang):
+    """Build Accordion with 6 groups, each containing threshold input rows."""
+    thresh = get_thresholds()
+    items = []
+    for group, keys in THRESHOLD_GROUPS.items():
+        group_label = t(_GROUP_I18N[group], lang)
+        rows = []
+        for key in keys:
+            p = thresh.get(key, {})
+            mode = p.get("mode", "dual")
+            bounds = _MODE_BOUNDS.get(mode, [])
+            inputs = []
+            for b in bounds:
+                inputs.append(dbc.Col([
+                    dbc.Label(t(_BOUND_LABELS[b], lang), className="form-label"),
+                    dbc.Input(
+                        id={"type": "thresh-input", "key": key, "bound": b},
+                        type="number",
+                        value=p.get(b, 0),
+                        step="any",
+                        className="form-control",
+                    ),
+                ], md=3, sm=6, xs=6))
+            rows.append(html.Div([
+                html.P(
+                    "{} ({})".format(p.get("label", key), p.get("unit", "")),
+                    style={"fontSize": "13px", "fontWeight": "600",
+                           "color": CS["text"], "margin": "8px 0 4px 0"},
+                ),
+                dbc.Row(inputs, className="g-2 mb-2"),
+            ]))
+        items.append(dbc.AccordionItem(html.Div(rows), title=group_label))
+    return dbc.Accordion(items, start_collapsed=True)
+
+
+@app.callback(
+    Output("modal-body", "children"),
+    [Input("modal-settings", "is_open"),
+     Input("store-lang",     "data")],
+)
+def populate_modal(is_open, lang):
+    lang = lang or DEFAULT_LANG
+    if not is_open:
+        return dash.no_update
+    return build_settings_body(lang)
+
+
+@app.callback(
+    Output("store-thresh-ver", "data"),
+    [Input("btn-save-thresh", "n_clicks"),
+     Input("btn-reset-all",   "n_clicks")],
+    [State({"type": "thresh-input", "key": ALL, "bound": ALL}, "value"),
+     State({"type": "thresh-input", "key": ALL, "bound": ALL}, "id"),
+     State("store-thresh-ver", "data")],
+    prevent_initial_call=True,
+)
+def save_or_reset_thresholds(n_save, n_reset, values, ids, ver):
+    trigger = callback_context.triggered[0]["prop_id"].split(".")[0]
+    if trigger == "btn-save-thresh" and n_save:
+        overrides = {}
+        for val, id_dict in zip(values, ids):
+            key = id_dict["key"]
+            bound = id_dict["bound"]
+            if key not in overrides:
+                overrides[key] = {}
+            try:
+                overrides[key][bound] = float(val)
+            except (TypeError, ValueError):
+                pass
+        save_thresholds(overrides)
+    elif trigger == "btn-reset-all" and n_reset:
+        reset_thresholds()
+    return (ver or 0) + 1
 
 
 # ─── Entry point ──────────────────────────────────────────────────────────────
