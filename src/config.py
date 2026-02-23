@@ -5,6 +5,10 @@ All values here serve as factory defaults; runtime overrides live in
 thresholds.json (written by the Settings panel).
 """
 
+import json
+from copy import deepcopy
+from pathlib import Path as _Path
+
 # ─── Colour Palette (dark SCADA theme) ───────────────────────────────────────
 COLOR_SCHEME = {
     "bg":      "#1a1a2e",   # page background
@@ -234,3 +238,41 @@ THRESHOLD_GROUPS = {
     "Throughput": ["belt_weigher_hourly"],
     "Other":      ["main_filter_kp", "valve_position"],
 }
+
+# ─── Threshold Persistence ────────────────────────────────────────────────────
+
+_THRESHOLDS_JSON = _Path(__file__).resolve().parent / "thresholds.json"
+
+_BOUNDARY_KEYS = {"red_low", "green_min", "green_max", "red_high",
+                  "red_below", "green_above", "green_below", "red_above"}
+
+
+def get_thresholds():
+    """Return merged thresholds: DEFAULT_THRESHOLDS overlaid with thresholds.json."""
+    merged = deepcopy(DEFAULT_THRESHOLDS)
+    if _THRESHOLDS_JSON.exists():
+        try:
+            with open(_THRESHOLDS_JSON, "r", encoding="utf-8") as f:
+                overrides = json.load(f)
+            for key, vals in overrides.items():
+                if key in merged and isinstance(vals, dict):
+                    merged[key].update(vals)
+        except (json.JSONDecodeError, OSError):
+            pass
+    return merged
+
+
+def save_thresholds(overrides_dict):
+    """Write user overrides to thresholds.json. Only boundary fields are stored."""
+    clean = {}
+    for key, vals in overrides_dict.items():
+        if key in DEFAULT_THRESHOLDS:
+            clean[key] = {k: v for k, v in vals.items() if k in _BOUNDARY_KEYS}
+    with open(_THRESHOLDS_JSON, "w", encoding="utf-8") as f:
+        json.dump(clean, f, indent=2, ensure_ascii=False)
+
+
+def reset_thresholds():
+    """Delete thresholds.json, restoring factory defaults."""
+    if _THRESHOLDS_JSON.exists():
+        _THRESHOLDS_JSON.unlink()

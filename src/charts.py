@@ -8,6 +8,8 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import pandas as pd
 
+from config import get_thresholds
+
 # ─── Dark SCADA colours ───────────────────────────────────────────────────────
 BG      = "#1a1a2e"
 CARD_BG = "#16213e"
@@ -157,11 +159,17 @@ def fig_mill_gauges(df: pd.DataFrame) -> go.Figure:
         specs=[[{"type": "indicator"}] * 3],
     )
 
+    th = get_thresholds().get("press_load_amps", {})
+    rl = th.get("red_low", 50)
+    gn = th.get("green_min", 400)
+    gx = th.get("green_max", 460)
+    rh = th.get("red_high", 480)
+
     for i, (col, name) in enumerate(amp_cols, 1):
         v = _latest(df, col) or 0
         bar_clr = (
-            GREEN  if 400 <= v <= 460 else
-            YELLOW if (50 <= v < 400 or 460 < v <= 480) else
+            GREEN  if gn <= v <= gx else
+            YELLOW if (rl <= v < gn or gx < v <= rh) else
             RED
         )
         fig.add_trace(go.Indicator(
@@ -173,11 +181,11 @@ def fig_mill_gauges(df: pd.DataFrame) -> go.Figure:
                 "bar": {"color": bar_clr},
                 "bgcolor": GRID,
                 "steps": [
-                    {"range": [0, 50],    "color": "#3d1a1a"},
-                    {"range": [50, 400],  "color": "#3d3312"},
-                    {"range": [400, 460], "color": "#0f3d27"},
-                    {"range": [460, 480], "color": "#3d3312"},
-                    {"range": [480, 550], "color": "#3d1a1a"},
+                    {"range": [0, rl],       "color": "#3d1a1a"},
+                    {"range": [rl, gn],      "color": "#3d3312"},
+                    {"range": [gn, gx],      "color": "#0f3d27"},
+                    {"range": [gx, rh],      "color": "#3d3312"},
+                    {"range": [rh, 550],     "color": "#3d1a1a"},
                 ],
             },
         ), row=1, col=i)
@@ -442,13 +450,17 @@ def fig_quality_trends(df: pd.DataFrame) -> go.Figure:
 
 def fig_turbine_gauge(df: pd.DataFrame) -> go.Figure:
     """Semi-circular gauge: Turbine Generated Power kW (Col 60)."""
+    th = get_thresholds().get("turbine_power", {})
+    rb = th.get("red_below", 500)
+    ga = th.get("green_above", 2000)
+
     val = _latest(df, "Turbine Generated Power kW") or 0
-    bar_clr = GREEN if val >= 2000 else (YELLOW if val >= 500 else RED)
+    bar_clr = GREEN if val >= ga else (YELLOW if val >= rb else RED)
 
     fig = go.Figure(go.Indicator(
         mode="gauge+number+delta",
         value=val,
-        delta={"reference": 2000, "relative": False,
+        delta={"reference": ga, "relative": False,
                "font": {"size": 12, "color": SUBTEXT}},
         number={"suffix": "\u202fkW", "font": {"size": 20, "color": TEXT}},
         title={"text": "Turbine Power [Col\u202f60]",
@@ -463,13 +475,13 @@ def fig_turbine_gauge(df: pd.DataFrame) -> go.Figure:
             "bar": {"color": bar_clr},
             "bgcolor": GRID,
             "steps": [
-                {"range": [0, 500],    "color": "#3d1a1a"},
-                {"range": [500, 2000], "color": "#3d3312"},
-                {"range": [2000, 2800], "color": "#0f3d27"},
+                {"range": [0, rb],     "color": "#3d1a1a"},
+                {"range": [rb, ga],    "color": "#3d3312"},
+                {"range": [ga, 2800],  "color": "#0f3d27"},
             ],
             "threshold": {
                 "line": {"color": GREEN, "width": 2},
-                "thickness": 0.75, "value": 2000,
+                "thickness": 0.75, "value": ga,
             },
         },
     ))

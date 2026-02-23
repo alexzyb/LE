@@ -1,9 +1,10 @@
 # Plan.md — Land Energy Dashboard 开发计划
 
 > ⚠️ **每次启动必读此文件，每轮任务结束后必须更新。**
+> 📝 **Bugfix 记录规范**: 每次临时修复 bug，需在对应 Phase 下追加 `🐛 fix:` 条目，注明问题原因和修复内容。
 
-## 📅 最后更新: 2026-02-18
-## 🏁 当前阶段: Phase 3 ✅ → Phase 4 待开始
+## 📅 最后更新: 2026-02-23
+## 🏁 当前阶段: Phase 4 ✅ → Phase 5 待开始
 
 ---
 
@@ -49,15 +50,36 @@
 - [x] `src/app.py` 重写 — 659行，6面板+KPI+全数据表+DateRange联动
 - [x] 测试: 15/15 图表 OK, page1_layout/page2_layout OK, 数据: 745行/322事件 ✓
 
-## Phase 4: 阈值设置面板 ⬜
-- [ ] Modal UI (16 参数输入表单)
-- [ ] Save → thresholds.json + 全局颜色刷新
-- [ ] Reset → 删 json + 恢复默认
-- [ ] 面板三语
+## Phase 3.5: KPI 总览页 + 字体放大 ✅
+- [x] 全局字体放大: KPI值 38→48px, 标签 10→13px, 面板标题 11→14px, DataTable 10→13px 等
+- [x] 新增 P1 KPI 总览页 (`/`) — 大字体商务绩效看板
+  - Production: 4 张 KPI 卡片 (日产量/小时速率/磨机状态/期间总量)
+  - Energy: 4 张 KPI 卡片 (涡轮功率/炉温/热油出口/HRU旁通)
+  - Dryer: 4 张 KPI 卡片 (烘干出料/出口水分/干燥仓1/干燥仓2)
+  - Quality: 2×3 网格 (Durability/Density/Moisture/Pellet Temp/Avg Length, 无Fines)
+- [x] 页面路由调整: `/`=总览, `/ops`=详细运营, `/ai`=AI占位
+- [x] 导航切换: Overview · Detail · AI (三语)
+- [x] `translations.py` 新增 ~25 个翻译键 (EN/ZH/FR)
+- [x] `style.css` 新增 `.overview-card`, `.quality-grid` 等 CSS 类
+- [x] Google Fonts 镜像修复 (fonts.googleapis.com → fonts.loli.net)
+- [x] 测试: 3页布局全部 OK, 15图表 OK, 三语 OK ✓
 
-## Phase 5: Page 2 Placeholder ⬜
-- [ ] 4 占位面板 + 灰色 overlay
-- [ ] 伪数据 + "Coming Soon"
+## Phase 4: 阈值设置面板 ✅
+- [x] `config.py` — get_thresholds() / save_thresholds() / reset_thresholds() 持久化函数
+- [x] Modal UI: dbc.Accordion 6 组 (Mill/Dryer/Quality/CHP/Throughput/Other), 16 参数 44 个输入框
+- [x] build_settings_body(lang) — 动态构建手风琴面板，dict ID 模式匹配
+- [x] populate_modal 回调 — 打开时填充当前阈值，语言切换重建
+- [x] save_or_reset_thresholds 回调 — pattern-matching ALL 收集输入，Save→JSON / Reset→删 JSON
+- [x] store-thresh-ver 版本号机制 — 阈值变更触发全页面颜色刷新
+- [x] 按钮文字 (Save & Apply / Reset All) 跟随三语切换
+- [x] style.css — Accordion 暗色主题 + Modal 输入框样式
+- [x] translations.py — 8 个边界标签 + 6 个分组名三语翻译
+- [x] 测试: 3 页 HTTP 200, save/reset 流程正常, 6 回调注册成功 ✓
+- [x] 🐛 fix: charts.py gauge 色带硬编码阈值 — 问题: fig_mill_gauges 和 fig_turbine_gauge 的色带边界是硬编码数字，Settings 面板修改阈值后 gauge 不会更新。修复: 改为从 get_thresholds() 动态读取边界值
+
+## Phase 5: Page 3 (AI) Placeholder 打磨 ⬜
+- [ ] 4 占位面板伪数据优化
+- [ ] overlay 样式微调
 - [ ] 三语
 
 ## Phase 6: 打磨交付 ⬜
@@ -77,7 +99,7 @@
 | 3 | Col 51 噪点 (6行) | 已决: 过滤 |
 | 4 | OEE 不计算 | 已决: 灰色占位 |
 | 5 | 法语翻译准确性 | 低风险 |
-| 6 | 阈值面板 UI 复杂度 (60+ 输入框) | 中风险 |
+| 6 | 阈值面板 UI 复杂度 (60+ 输入框) | 已解决: 44 输入框，pattern-matching ALL |
 
 ---
 
@@ -88,3 +110,6 @@
 | 2026-02-18 | 1 | config.py / translations.py / init_db.py / requirements.txt — 全部完成，测试通过 |
 | 2026-02-18 | 2 | app.py + assets/style.css — Dashboard骨架完成，KPI实时数据，三语切换，服务器启动正常 |
 | 2026-02-18 | 3 | data.py + charts.py(15图) + app.py重写 — 6面板全部接入真实数据，DateRange联动，测试全通过 |
+| 2026-02-23 | 3.5 | 新增P1 KPI总览页(12卡片+Quality网格) + 全局字体放大 + 3页路由(Overview/Detail/AI) + Google Fonts镜像修复 |
+| 2026-02-23 | 4 | 阈值设置面板完成 — config.py持久化 + Modal手风琴UI(16参数44输入) + save/reset回调 + store-thresh-ver全局刷新 + 三语 |
+| 2026-02-23 | 4-fix | charts.py gauge 硬编码阈值修复 (fig_mill_gauges + fig_turbine_gauge → get_thresholds()) |
