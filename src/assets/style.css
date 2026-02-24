@@ -44,8 +44,8 @@ body {
 }
 
 .brand-logo {
-    font-size: 26px;
-    line-height: 1;
+    height: 32px;
+    width: auto;
 }
 
 .brand-name {
@@ -367,18 +367,23 @@ body {
 /* ── Page 3 / AI Placeholder panels ──────────────────────────── */
 .placeholder-panel-body {
     position: relative;
-    min-height: 200px !important;
+    min-height: auto !important;
+    padding: 0 !important;
+}
+
+.placeholder-panel-body .js-plotly-plot {
+    z-index: 1;
 }
 
 .coming-soon-overlay {
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(26, 26, 46, 0.82);
+    background: rgba(26, 26, 46, 0.68);
     display: flex;
     align-items: center;
     justify-content: center;
-    backdrop-filter: blur(3px);
-    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
     z-index: 10;
 }
 
@@ -391,14 +396,6 @@ body {
     font-size: 12px;
     margin-top: 8px;
     margin-bottom: 0;
-}
-
-.fake-content-text {
-    color: #2a2a4a;
-    font-size: 12px;
-    font-style: italic;
-    padding: 20px;
-    margin: 0;
 }
 
 .p2-title {

@@ -40,7 +40,7 @@
     "red_above": 11.0
   },
   "avg_pellet_length": {
-    "green_below": 20.0,
+    "green_below": 10.0,
     "red_above": 21.0
   },
   "bulk_density": {

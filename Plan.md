@@ -3,8 +3,8 @@
 > ⚠️ **每次启动必读此文件，每轮任务结束后必须更新。**
 > 📝 **Bugfix 记录规范**: 每次临时修复 bug，需在对应 Phase 下追加 `🐛 fix:` 条目，注明问题原因和修复内容。
 
-## 📅 最后更新: 2026-02-23
-## 🏁 当前阶段: Phase 4 ✅ → Phase 5 待开始
+## 📅 最后更新: 2026-02-24
+## 🏁 当前阶段: Phase 6 ✅ — 项目交付完成
 
 ---
 
@@ -77,17 +77,18 @@
 - [x] 测试: 3 页 HTTP 200, save/reset 流程正常, 6 回调注册成功 ✓
 - [x] 🐛 fix: charts.py gauge 色带硬编码阈值 — 问题: fig_mill_gauges 和 fig_turbine_gauge 的色带边界是硬编码数字，Settings 面板修改阈值后 gauge 不会更新。修复: 改为从 get_thresholds() 动态读取边界值
 
-## Phase 5: Page 3 (AI) Placeholder 打磨 ⬜
-- [ ] 4 占位面板伪数据优化
-- [ ] overlay 样式微调
-- [ ] 三语
+## Phase 5: Page 3 (AI) Placeholder 打磨 ✅
+- [x] 4 占位面板伪数据优化 — charts.py 新增 4 个伪数据 Plotly 图表函数 (Production Forecast 趋势+置信带, Fault Prediction 概率条形图, Anomaly Detection 时间线+标记, Root Cause Sankey)
+- [x] overlay 样式微调 — 透明度 0.82→0.68，blur 3→2px，min-height 改 auto 适配图表高度
+- [x] 三语 — 已在 Phase 2 完成，无需新增翻译 key
+- [x] 测试: 3 页 HTTP 200, 4 个 AI 图表渲染正常, overlay 覆盖正常 ✓
 
-## Phase 6: 打磨交付 ⬜
-- [ ] Logo 获取
-- [ ] CSS 微调
-- [ ] 三语全面测试
-- [ ] README.md
-- [ ] 对照 `docs/layout-spec.md` 验收清单逐项检查
+## Phase 6: 打磨交付 ✅
+- [x] Logo 获取 — S3 CDN 下载 PNG (60×60 RGBA)，html.Img 替换 ⚡ emoji，CSS height:32px
+- [x] CSS 微调 — .brand-logo 从 font-size 改为 height/width auto，与文字对齐正常
+- [x] 三语全面测试 — 77 个 key，EN/ZH/FR 完全一致，无遗漏
+- [x] README.md — 项目简介 + 快速启动 + 项目结构 + 技术栈 + 功能列表
+- [x] 对照 `docs/layout-spec.md` 验收清单逐项检查 — 30+ 项全部 PASS
 
 ---
 
@@ -113,3 +114,5 @@
 | 2026-02-23 | 3.5 | 新增P1 KPI总览页(12卡片+Quality网格) + 全局字体放大 + 3页路由(Overview/Detail/AI) + Google Fonts镜像修复 |
 | 2026-02-23 | 4 | 阈值设置面板完成 — config.py持久化 + Modal手风琴UI(16参数44输入) + save/reset回调 + store-thresh-ver全局刷新 + 三语 |
 | 2026-02-23 | 4-fix | charts.py gauge 硬编码阈值修复 (fig_mill_gauges + fig_turbine_gauge → get_thresholds()) |
+| 2026-02-24 | 5 | AI占位页打磨 — 4个伪数据Plotly图表(Forecast+FaultPred+Anomaly+Sankey) + overlay透明度微调 |
+| 2026-02-24 | 6 | 打磨交付 — Logo集成(S3 PNG→html.Img) + CSS微调 + 三语77key一致 + README.md + 30+项验收全PASS |

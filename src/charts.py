@@ -7,6 +7,7 @@ All figures use the SCADA dark theme.
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import pandas as pd
+import numpy as np
 
 from config import get_thresholds
 
@@ -635,5 +636,157 @@ def fig_area_downtime(events_df: pd.DataFrame) -> go.Figure:
     fig.update_layout(
         xaxis=dict(title="minutes"),
         margin=dict(l=140, r=60, t=38, b=40),
+    )
+    return fig
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# AI Placeholder — Fake-data charts (Phase 5)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def fig_ai_production_forecast() -> go.Figure:
+    """Fake 24h production forecast with ±15% confidence band."""
+    np.random.seed(42)
+    hours = pd.date_range("2026-02-02 00:00", periods=24, freq="h")
+    base = 16 + np.cumsum(np.random.randn(24) * 0.3)
+    upper = base * 1.15
+    lower = base * 0.85
+
+    fig = _fig(
+        title=dict(text="24h Production Forecast (t/h)", font=dict(size=12)),
+        height=220,
+        margin=dict(l=42, r=16, t=34, b=36),
+    )
+    # confidence band
+    fig.add_trace(go.Scatter(
+        x=list(hours) + list(hours[::-1]),
+        y=list(upper) + list(lower[::-1]),
+        fill="toself", fillcolor="rgba(15,155,88,0.15)",
+        line=dict(width=0), showlegend=False, hoverinfo="skip",
+    ))
+    # forecast line
+    fig.add_trace(go.Scatter(
+        x=hours, y=base, mode="lines",
+        line=dict(color=GREEN, width=2), name="Forecast",
+        showlegend=False,
+    ))
+    # vertical "now" marker
+    now_x = str(hours[6])
+    fig.add_shape(type="line", x0=now_x, x1=now_x, y0=0, y1=1,
+                  yref="paper", line=dict(color=YELLOW, width=1, dash="dash"))
+    fig.add_annotation(x=now_x, y=1, yref="paper", text="Now",
+                       showarrow=False, font=dict(size=9, color=YELLOW), yshift=8)
+    fig.update_layout(
+        yaxis=dict(title="t/h", range=[10, 22]),
+        xaxis=dict(tickformat="%H:%M"),
+    )
+    return fig
+
+
+def fig_ai_fault_prediction() -> go.Figure:
+    """Fake fault prediction: horizontal bar showing risk levels for components."""
+    components = ["Mill 2 Blockage", "Dryer Overheat", "Bearing Wear", "Belt Slip"]
+    probs = [72, 35, 18, 8]
+    colors = [RED, YELLOW, GREEN, GREEN]
+
+    fig = _fig(
+        title=dict(text="Fault Probability — Next 24h", font=dict(size=12)),
+        height=220,
+        margin=dict(l=120, r=40, t=34, b=36),
+    )
+    fig.add_trace(go.Bar(
+        y=components, x=probs, orientation="h",
+        marker_color=colors,
+        text=[f"{p}%" for p in probs],
+        textposition="outside",
+        textfont=dict(color=TEXT, size=11),
+        showlegend=False,
+    ))
+    fig.update_layout(
+        xaxis=dict(title="Probability %", range=[0, 100]),
+        yaxis=dict(autorange="reversed"),
+    )
+    # ETA annotation for top risk
+    fig.add_annotation(
+        x=72, y="Mill 2 Blockage",
+        text="ETA ~14h",
+        showarrow=True, arrowhead=2, arrowcolor=RED,
+        font=dict(color=RED, size=10),
+        ax=40, ay=-20,
+    )
+    return fig
+
+
+def fig_ai_anomaly_detection() -> go.Figure:
+    """Fake timeline with 4 anomaly markers."""
+    np.random.seed(7)
+    hours = pd.date_range("2026-01-28", periods=96, freq="h")
+    signal = 14 + np.sin(np.arange(96) * 0.15) * 2 + np.random.randn(96) * 0.4
+
+    # inject anomalies
+    anomaly_idx = [18, 45, 72, 88]
+    for i in anomaly_idx:
+        signal[i] += np.random.choice([-4, 4])
+
+    fig = _fig(
+        title=dict(text="Anomaly Detection — Throughput", font=dict(size=12)),
+        height=220,
+        margin=dict(l=42, r=16, t=34, b=36),
+    )
+    fig.add_trace(go.Scatter(
+        x=hours, y=signal, mode="lines",
+        line=dict(color=MILL_CLR[0], width=1.4),
+        showlegend=False,
+    ))
+    # anomaly markers
+    fig.add_trace(go.Scatter(
+        x=hours[anomaly_idx], y=signal[anomaly_idx],
+        mode="markers",
+        marker=dict(symbol="triangle-up", size=12, color=RED,
+                    line=dict(width=1, color="#ff8a80")),
+        name="Anomaly", showlegend=False,
+        hovertemplate="Anomaly<br>%{x}<br>%{y:.1f} t/h<extra></extra>",
+    ))
+    fig.update_layout(
+        yaxis=dict(title="t/h"),
+        xaxis=dict(tickformat="%d %b %H:%M"),
+    )
+    return fig
+
+
+def fig_ai_root_cause() -> go.Figure:
+    """Fake Sankey: Feed Rate → Moisture → Blockage causal chain."""
+    labels = [
+        "Feed Rate ↑",      # 0
+        "Moisture ↑",        # 1
+        "Die Pressure ↑",    # 2
+        "Blockage",          # 3
+        "Bearing Temp ↑",    # 4
+        "Normal",            # 5
+    ]
+    fig = go.Figure(go.Sankey(
+        node=dict(
+            pad=15, thickness=18,
+            line=dict(color=GRID, width=0.5),
+            label=labels,
+            color=[YELLOW, YELLOW, RED, RED, YELLOW, GREEN],
+        ),
+        link=dict(
+            source=[0, 0, 1, 1, 2, 2],
+            target=[1, 5, 2, 4, 3, 5],
+            value= [60, 40, 45, 15, 35, 10],
+            color=[
+                "rgba(244,180,0,0.25)", "rgba(15,155,88,0.2)",
+                "rgba(219,68,55,0.25)", "rgba(244,180,0,0.2)",
+                "rgba(219,68,55,0.3)",  "rgba(15,155,88,0.15)",
+            ],
+        ),
+    ))
+    fig.update_layout(
+        title=dict(text="Root Cause Analysis", font=dict(size=12, color=TEXT)),
+        paper_bgcolor=CARD_BG,
+        font=dict(color=TEXT, family="Roboto Mono, Courier New, monospace", size=10),
+        margin=dict(l=16, r=16, t=34, b=16),
+        height=220,
     )
     return fig

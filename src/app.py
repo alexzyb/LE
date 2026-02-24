@@ -625,13 +625,14 @@ def page1_layout(lang, start_date, end_date):
 # ─── Page 3 / AI Placeholder layout ───────────────────────────────────────────
 
 def page2_layout(lang):
-    def ai_panel(title, fake_text):
+    def ai_panel(title, figure):
         return dbc.Col(
             html.Div([
                 html.Div(html.H5(title, className="panel-title"),
                          className="panel-header"),
                 html.Div([
-                    html.P(fake_text, className="fake-content-text"),
+                    dcc.Graph(figure=figure, config={"displayModeBar": False,
+                                                     "responsive": True}),
                     html.Div(
                         html.Div([
                             html.Div("\U0001f512",
@@ -652,13 +653,15 @@ def page2_layout(lang):
         ], className="p2-title mb-3"),
         dbc.Row([
             ai_panel(t("p2_production_fc", lang),
-                     "Forecast trend + \u00b115\u202f% confidence band"),
+                     _charts.fig_ai_production_forecast()),
             ai_panel(t("p2_fault_pred", lang),
-                     "Next: Mill\u202f2 Blockage \u2014 ETA\u202f~14h \u2014 Conf:\u202f72\u202f%"),
+                     _charts.fig_ai_fault_prediction()),
         ], className="g-2 mb-2"),
         dbc.Row([
-            ai_panel(t("p2_anomaly",    lang), "Timeline with 3 anomaly markers"),
-            ai_panel(t("p2_root_cause", lang), "Sankey: Feed \u2192 Moisture \u2192 Blockage"),
+            ai_panel(t("p2_anomaly",    lang),
+                     _charts.fig_ai_anomaly_detection()),
+            ai_panel(t("p2_root_cause", lang),
+                     _charts.fig_ai_root_cause()),
         ], className="g-2 mb-3"),
         html.Div(["\u26a0\ufe0f\u2002", t("p2_availability", lang)],
                  className="p2-banner"),
@@ -676,7 +679,7 @@ app.layout = html.Div([
     # Top Bar
     html.Div([
         html.Div([
-            html.Span("\u26a1", className="brand-logo"),
+            html.Img(src="/assets/logo.png", className="brand-logo"),
             html.Div([
                 html.Span("Land Energy",        className="brand-name"),
                 html.Span("Dashboard", className="brand-sub"),
