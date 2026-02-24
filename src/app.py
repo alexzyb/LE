@@ -361,6 +361,28 @@ def _ov_card(label, value, unit, color="grey"):
     )
 
 
+def _ov_tank(label, value_num, value_str, color="grey"):
+    """Tank level card for the overview page (Dry Silo)."""
+    clr = _HEX.get(color, CS["text"])
+    pct = max(0, min(100, value_num or 0))
+    return dbc.Col(
+        html.Div([
+            html.Div(style={
+                "backgroundColor": clr,
+                "height": f"{pct}%",
+            }, className="overview-tank-fill"),
+            html.P(label, className="overview-tank-label"),
+            html.Div([
+                html.Span(value_str, className="overview-tank-value",
+                          style={"color": clr}),
+                html.Span("\u202f%", className="overview-tank-unit"),
+            ]),
+        ], className="overview-tank",
+           style={"borderLeft": f"4px solid {clr}"}),
+        md=3, sm=6, xs=6, className="mb-3",
+    )
+
+
 def _ov_quality_cell(label, value, unit, color="grey"):
     """Single cell in the quality grid."""
     clr = _HEX.get(color, CS["subtext"])
@@ -435,6 +457,7 @@ def overview_layout(lang, start_date, end_date):
     furnace  = _latest("Furnace Temp")
     furn_clr = threshold_color("furnace_temp", furnace)
     thermal  = _latest("Thermal Oil OUT")
+    therm_clr = threshold_color("thermal_oil_out", thermal)
     hru      = _latest("HRU Bypass Damper")
 
     energy_section = html.Div([
@@ -442,7 +465,7 @@ def overview_layout(lang, start_date, end_date):
         dbc.Row([
             _ov_card(t("ov_turbine", lang),      _fmt(turbine, 0), "kW",  turb_clr),
             _ov_card(t("ov_furnace_temp", lang), _fmt(furnace, 0), "\u00b0C", furn_clr),
-            _ov_card(t("ov_thermal_oil", lang),  _fmt(thermal, 0), "\u00b0C"),
+            _ov_card(t("ov_thermal_oil", lang),  _fmt(thermal, 0), "\u00b0C", therm_clr),
             _ov_card(t("ov_hru_bypass", lang),   _fmt(hru, 0),     "%"),
         ]),
     ], className="mb-2")
@@ -451,17 +474,19 @@ def overview_layout(lang, start_date, end_date):
     dryer_feed = _latest("Dryer out feed t/h")
     dryer_clr  = threshold_color("dryer_out_feed", dryer_feed)
     moisture   = _latest("Moisture %  Actual Value at Dryer Outlet")
-    moist_clr  = threshold_color("dryer_moisture_actual", moisture)
+    moist_clr  = threshold_color("dryer_outlet_moisture", moisture)
     silo1      = _latest("Dry Silo 1 Level %")
+    silo1_clr  = threshold_color("dry_silo_level", silo1)
     silo2      = _latest("Dry Silo 2 Level %")
+    silo2_clr  = threshold_color("dry_silo_level", silo2)
 
     dryer_section = html.Div([
         html.H6(t("cat_dryer", lang), className="overview-section-title"),
         dbc.Row([
             _ov_card(t("ov_dryer_feed", lang),      _fmt(dryer_feed), "t/h", dryer_clr),
             _ov_card(t("ov_outlet_moisture", lang), _fmt(moisture),   "%",   moist_clr),
-            _ov_card(t("ov_dry_silo_1", lang),      _fmt(silo1, 0),  "%"),
-            _ov_card(t("ov_dry_silo_2", lang),      _fmt(silo2, 0),  "%"),
+            _ov_tank(t("ov_dry_silo_1", lang), silo1, _fmt(silo1, 0), silo1_clr),
+            _ov_tank(t("ov_dry_silo_2", lang), silo2, _fmt(silo2, 0), silo2_clr),
         ]),
     ], className="mb-2")
 

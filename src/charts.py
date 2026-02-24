@@ -314,8 +314,16 @@ def fig_dry_silos(df: pd.DataFrame) -> go.Figure:
     s2 = _latest(df, "Dry Silo 2 Level %") or 0
 
     def bar_color(v):
-        if v < 20 or v > 90: return RED
-        if v < 30 or v > 80: return YELLOW
+        th = get_thresholds().get("dry_silo_level", {})
+        mode = th.get("mode", "dual")
+        rl = th.get("red_low", 20)
+        gmin = th.get("green_min", 30)
+        gmax = th.get("green_max", 80)
+        rh = th.get("red_high", 90)
+        if mode == "dual":
+            if v < rl or v > rh: return RED
+            if v < gmin or v > gmax: return YELLOW
+            return GREEN
         return GREEN
 
     fig = go.Figure()

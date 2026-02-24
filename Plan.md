@@ -89,6 +89,10 @@
 - [x] 三语全面测试 — 77 个 key，EN/ZH/FR 完全一致，无遗漏
 - [x] README.md — 项目简介 + 快速启动 + 项目结构 + 技术栈 + 功能列表
 - [x] 对照 `docs/layout-spec.md` 验收清单逐项检查 — 30+ 项全部 PASS
+- [x] 🐛 fix: Overview 页阈值颜色缺失 — 问题: Dry Silo 1/2 永远灰色（未调用 threshold_color）、Outlet Moisture 用了不存在的 key `dryer_moisture_actual`（应为 `dryer_outlet_moisture`）、Thermal Oil 未接入阈值颜色。修复: app.py 补全 4 个 KPI 卡片的 threshold_color 调用
+- [x] 🐛 fix: Detail 页 Dry Silo 图表颜色硬编码 — 问题: charts.py fig_dry_silos() 色带边界写死 (20/30/80/90)，Settings 面板修改阈值后不生效。修复: 改为从 get_thresholds() 动态读取 dry_silo_level 边界值
+- [x] Overview Dry Silo 液位罐视觉组件 — 新增 `_ov_tank()` 纯 CSS+HTML tank level 组件，替代原数字卡片，底部半透明填充色块高度=百分比，颜色跟随阈值
+- [x] Render.com 部署配置 — gunicorn + render.yaml + PORT 环境变量 + docs/deployment.md
 
 ---
 
@@ -116,3 +120,5 @@
 | 2026-02-23 | 4-fix | charts.py gauge 硬编码阈值修复 (fig_mill_gauges + fig_turbine_gauge → get_thresholds()) |
 | 2026-02-24 | 5 | AI占位页打磨 — 4个伪数据Plotly图表(Forecast+FaultPred+Anomaly+Sankey) + overlay透明度微调 |
 | 2026-02-24 | 6 | 打磨交付 — Logo集成(S3 PNG→html.Img) + CSS微调 + 三语77key一致 + README.md + 30+项验收全PASS |
+| 2026-02-24 | 6-fix | 阈值颜色修复 — Overview: Dry Silo 1/2 + Outlet Moisture(错误key) + Thermal Oil 补全threshold_color; Detail: fig_dry_silos硬编码→get_thresholds()动态读取 |
+| 2026-02-24 | 6+ | Overview Dry Silo 液位罐组件(_ov_tank CSS+HTML) + Render部署配置(gunicorn/render.yaml/deployment.md) |
