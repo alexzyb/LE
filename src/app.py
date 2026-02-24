@@ -934,5 +934,7 @@ def save_or_reset_thresholds(n_save, n_reset, values, ids, ver):
 if __name__ == "__main__":
     db_ok = "OK" if DB_PATH.exists() else "NOT FOUND \u2014 run init_db.py first"
     print(f"Database : {DB_PATH}  [{db_ok}]")
-    print("Starting : http://localhost:8050\n")
-    app.run(debug=True, host="0.0.0.0", port=8050)
+    import os
+    port = int(os.environ.get("PORT", 8050))
+    print(f"Starting : http://localhost:{port}\n")
+    app.run(debug=False, host="0.0.0.0", port=port)
