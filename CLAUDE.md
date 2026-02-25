@@ -18,6 +18,8 @@
 - **阈值可调**: 16 个参数的 🟢🟡🔴 颜色边界可通过 ⚙️ Settings UI 调整（见 `docs/thresholds.md`）
 - **不计算 OEE**: OEE 卡片灰色占位 "— %"，不做 A×P×Q
 - **深色 SCADA 风格**: Roboto Mono 数字字体，关键数字 2 米外可读
+- **Grafana 风格时间控制**: 快速范围按钮 (1m/30m/1h/6h/24h) + 自动刷新 (Off/5s/30s/1min)
+- **Render.com 部署**: gunicorn + render.yaml，可云端 Demo（见 `docs/deployment.md`）
 
 ## 关键约束
 - **技术栈**: Python 3.10+, Dash (Plotly), SQLite, 本地运行 localhost:8050
@@ -39,9 +41,10 @@
 | `docs/layout-spec.md` | 写页面布局时 | ASCII 线框图 (P1总览/P2详细/P3 AI)、KPI 卡片定义、完整验收标准 |
 | `docs/background.md` | 需要业务背景时 | 项目背景、工厂架构、商业目标 |
 | `docs/data-analysis.md` | 需要参数含义时 | 前期数据分析对话（参数详解、阈值来源推导） |
+| `docs/deployment.md` | 部署到云端时 | Render.com 部署步骤、Azure 未来规划 |
 
 ## ❌ Out of Scope（不做的功能）
-- 不做 OEE 计算、不做云部署、不做真实 AI/ML、不做用户认证、不做移动端适配
+- 不做 OEE 计算、不做真实 AI/ML、不做用户认证、不做移动端适配
 - 完整清单见 `docs/scope-and-design.md` §2
 
 ## 目录结构目标
@@ -49,15 +52,23 @@
 C:/LE/
 ├── CLAUDE.md              ← 你正在读的文件
 ├── Plan.md                ← 进度追踪
+├── README.md              ← 项目说明
+├── requirements.txt       ← 根目录依赖 (Render 部署用)
+├── render.yaml            ← Render.com 部署配置
 ├── docs/                  ← 参考文档（按需读取）
+│   └── deployment.md      ← 部署指南
 ├── data/                  ← CSV 数据文件
 └── src/                   ← 代码输出
     ├── app.py
     ├── init_db.py
+    ├── data.py
+    ├── charts.py
     ├── config.py
     ├── translations.py
     ├── requirements.txt
     ├── assets/
+    │   ├── style.css
+    │   └── logo.png
     ├── thresholds.json    ← 运行时生成 (用户阈值覆盖)
     └── land_energy.db     ← 运行时生成 (init_db.py)
 ```
@@ -74,5 +85,8 @@ C:/LE/
 - [ ] P1 总览页: 12张KPI大卡片 + Quality 2×3网格，字体醒目
 - [ ] P3 有 4 个 AI Placeholder 面板
 - [ ] 导航: Overview · Detail · AI 三页切换
+- [ ] 快速时间范围按钮 (1m/30m/1h/6h/24h) 可切换并高亮
+- [ ] 自动刷新下拉 (Off/5s/30s/1min) 可启停，指示灯闪烁
+- [ ] Overview Dry Silo 1/2 显示液位罐视觉组件
 
 完整验收标准见 `docs/layout-spec.md` 底部。

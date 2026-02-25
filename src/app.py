@@ -699,6 +699,11 @@ app.layout = html.Div([
 
     dcc.Store(id="store-lang", data=DEFAULT_LANG, storage_type="session"),
     dcc.Store(id="store-thresh-ver", data=0),
+    dcc.Store(id="store-time-mode",
+              data={"mode": "custom", "quick_range": None},
+              storage_type="session"),
+    dcc.Interval(id="auto-refresh-interval", interval=60000,
+                 n_intervals=0, disabled=True),
     dcc.Location(id="url", refresh=False),
 
     # Top Bar
@@ -725,6 +730,34 @@ app.layout = html.Div([
             ),
             dbc.Button("Apply", id="btn-apply", n_clicks=0,
                        color="primary", size="sm"),
+            html.Div([
+                dbc.ButtonGroup([
+                    dbc.Button("1m",  id="qr-1m",  size="sm", color="secondary",
+                               outline=True, n_clicks=0),
+                    dbc.Button("30m", id="qr-30m", size="sm", color="secondary",
+                               outline=True, n_clicks=0),
+                    dbc.Button("1h",  id="qr-1h",  size="sm", color="secondary",
+                               outline=True, n_clicks=0),
+                    dbc.Button("6h",  id="qr-6h",  size="sm", color="secondary",
+                               outline=True, n_clicks=0),
+                    dbc.Button("24h", id="qr-24h", size="sm", color="secondary",
+                               outline=True, n_clicks=0),
+                ], size="sm"),
+                dbc.Select(
+                    id="auto-refresh-dropdown",
+                    options=[
+                        {"label": "Off",  "value": "0"},
+                        {"label": "5s",   "value": "5000"},
+                        {"label": "30s",  "value": "30000"},
+                        {"label": "1min", "value": "60000"},
+                    ],
+                    value="0",
+                    size="sm",
+                    className="auto-refresh-select",
+                ),
+                html.Span(id="refresh-dot", className="refresh-indicator",
+                          style={"display": "none"}),
+            ], className="time-range-toolbar"),
         ], className="topbar-center"),
 
         html.Div([
@@ -822,19 +855,89 @@ def update_topbar_labels(lang):
     )
 
 
+# ─── Time range & auto-refresh callbacks ────────────────────────────────────
+
+@app.callback(
+    [Output("auto-refresh-interval", "interval"),
+     Output("auto-refresh-interval", "disabled"),
+     Output("auto-refresh-interval", "n_intervals"),
+     Output("refresh-dot", "style")],
+    Input("auto-refresh-dropdown", "value"),
+)
+def update_refresh_interval(value):
+    ms = int(value or 0)
+    if ms == 0:
+        return 60000, True, 0, {"display": "none"}
+    return ms, False, 0, {"display": "inline-block"}
+
+
+@app.callback(
+    Output("store-time-mode", "data"),
+    [Input("qr-1m",    "n_clicks"),
+     Input("qr-30m",   "n_clicks"),
+     Input("qr-1h",    "n_clicks"),
+     Input("qr-6h",    "n_clicks"),
+     Input("qr-24h",   "n_clicks"),
+     Input("btn-apply", "n_clicks")],
+    prevent_initial_call=True,
+)
+def update_time_mode(*_args):
+    trigger = callback_context.triggered[0]["prop_id"].split(".")[0]
+    qr_map = {"qr-1m": "1m", "qr-30m": "30m", "qr-1h": "1h",
+              "qr-6h": "6h", "qr-24h": "24h"}
+    if trigger in qr_map:
+        return {"mode": "quick", "quick_range": qr_map[trigger]}
+    return {"mode": "custom", "quick_range": None}
+
+
+@app.callback(
+    [Output("qr-1m",  "outline"),
+     Output("qr-30m", "outline"),
+     Output("qr-1h",  "outline"),
+     Output("qr-6h",  "outline"),
+     Output("qr-24h", "outline")],
+    Input("store-time-mode", "data"),
+)
+def highlight_active_qr(time_mode):
+    time_mode = time_mode or {}
+    active = time_mode.get("quick_range")
+    ids = ["1m", "30m", "1h", "6h", "24h"]
+    return [qr != active for qr in ids]
+
+
 @app.callback(
     Output("page-content", "children"),
-    [Input("url",              "pathname"),
-     Input("store-lang",       "data"),
-     Input("btn-apply",        "n_clicks"),
-     Input("store-thresh-ver", "data")],
+    [Input("url",                   "pathname"),
+     Input("store-lang",            "data"),
+     Input("btn-apply",             "n_clicks"),
+     Input("store-thresh-ver",      "data"),
+     Input("store-time-mode",       "data"),
+     Input("auto-refresh-interval", "n_intervals")],
     [State("date-picker", "start_date"),
      State("date-picker", "end_date")],
 )
-def render_page(pathname, lang, _n, _tv, start_date, end_date):
-    lang       = lang       or DEFAULT_LANG
-    start_date = start_date or "2026-01-01"
-    end_date   = end_date   or "2026-02-01"
+def render_page(pathname, lang, _n, _tv, time_mode, _n_int,
+                start_date, end_date):
+    from datetime import datetime, timedelta
+    lang = lang or DEFAULT_LANG
+    time_mode = time_mode or {"mode": "custom", "quick_range": None}
+
+    if time_mode["mode"] == "quick" and time_mode.get("quick_range"):
+        now = datetime.now()
+        delta_map = {
+            "1m":  timedelta(minutes=1),
+            "30m": timedelta(minutes=30),
+            "1h":  timedelta(hours=1),
+            "6h":  timedelta(hours=6),
+            "24h": timedelta(hours=24),
+        }
+        delta = delta_map[time_mode["quick_range"]]
+        start_date = (now - delta).strftime("%Y-%m-%dT%H:%M:%S")
+        end_date   = now.strftime("%Y-%m-%dT%H:%M:%S")
+    else:
+        start_date = start_date or "2026-01-01"
+        end_date   = end_date   or "2026-02-01"
+
     if pathname == "/ops":
         return page1_layout(lang, start_date, end_date)
     if pathname == "/ai":

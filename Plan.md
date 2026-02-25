@@ -3,8 +3,8 @@
 > ⚠️ **每次启动必读此文件，每轮任务结束后必须更新。**
 > 📝 **Bugfix 记录规范**: 每次临时修复 bug，需在对应 Phase 下追加 `🐛 fix:` 条目，注明问题原因和修复内容。
 
-## 📅 最后更新: 2026-02-24
-## 🏁 当前阶段: Phase 6 ✅ — 项目交付完成
+## 📅 最后更新: 2026-02-25
+## 🏁 当前阶段: Phase 7 ✅ — Grafana 风格时间控制
 
 ---
 
@@ -94,12 +94,24 @@
 - [x] Overview Dry Silo 液位罐视觉组件 — 新增 `_ov_tank()` 纯 CSS+HTML tank level 组件，替代原数字卡片，底部半透明填充色块高度=百分比，颜色跟随阈值
 - [x] Render.com 部署配置 — gunicorn + render.yaml + PORT 环境变量 + docs/deployment.md
 
+## Phase 7: Grafana 风格时间范围 + 自动刷新 ✅
+- [x] `src/data.py` — get_shift_df() / get_events_df() 支持 datetime 精度过滤（YYYY-MM-DDTHH:MM:SS），向后兼容原 YYYY-MM-DD 格式
+- [x] `src/app.py` layout — 新增 dcc.Store(store-time-mode) + dcc.Interval(auto-refresh-interval) + 5 个快速范围按钮(1m/30m/1h/6h/24h) + dbc.Select 刷新间隔下拉(Off/5s/30s/1min) + 刷新指示灯(refresh-dot)
+- [x] `src/app.py` callbacks — 新增 3 个 callback:
+  - update_refresh_interval: 控制 Interval 启停 + 指示灯显隐
+  - update_time_mode: 根据触发源切换 quick/custom 模式（存入 store-time-mode）
+  - highlight_active_qr: 快速按钮高亮（outline=True/False 切换填充色）
+- [x] `src/app.py` render_page() 改造 — 新增 Input: store-time-mode + auto-refresh-interval.n_intervals; quick 模式用 datetime.now()-timedelta 计算滚动窗口
+- [x] `src/translations.py` — 新增 tr_auto_refresh / tr_refresh_off 翻译 key (EN/ZH/FR)
+- [x] `src/assets/style.css` — 新增 .time-range-toolbar / 按钮高亮(.btn-secondary) / .auto-refresh-select / .refresh-indicator + pulse 动画
+- [x] 测试: 3 页 HTTP 200, layout JSON 包含所有新组件 ID ✓
+
 ---
 
 ## 已知风险
 | # | 问题 | 状态 |
 |---|------|------|
-| 1 | Logo 获取 (可能需联网) | 待定 |
+| 1 | Logo 获取 (可能需联网) | 已解决: S3 CDN 下载 PNG |
 | 2 | Col 52-54 损坏 | 已决: 从 Col 45 差值计算 |
 | 3 | Col 51 噪点 (6行) | 已决: 过滤 |
 | 4 | OEE 不计算 | 已决: 灰色占位 |
@@ -122,3 +134,4 @@
 | 2026-02-24 | 6 | 打磨交付 — Logo集成(S3 PNG→html.Img) + CSS微调 + 三语77key一致 + README.md + 30+项验收全PASS |
 | 2026-02-24 | 6-fix | 阈值颜色修复 — Overview: Dry Silo 1/2 + Outlet Moisture(错误key) + Thermal Oil 补全threshold_color; Detail: fig_dry_silos硬编码→get_thresholds()动态读取 |
 | 2026-02-24 | 6+ | Overview Dry Silo 液位罐组件(_ov_tank CSS+HTML) + Render部署配置(gunicorn/render.yaml/deployment.md) |
+| 2026-02-25 | 7 | Grafana风格时间控制 — 快速范围按钮(1m/30m/1h/6h/24h) + 自动刷新(Off/5s/30s/1min) + data.py datetime精度过滤 + 3个新callback + 刷新指示灯 |

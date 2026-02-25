@@ -100,6 +100,9 @@ TRANSLATIONS = {
         "chart_events_table":   "Recent Events",
         # ── Date picker ──────────────────────────────────────────────────
         "date_range":           "Date Range",
+        # ── Time range toolbar ──────────────────────────────────────────
+        "tr_auto_refresh":      "Refresh",
+        "tr_refresh_off":       "Off",
     },
     "zh": {
         "page1_title":          "\u8fd0\u8425\u76d1\u63a7",
@@ -179,6 +182,8 @@ TRANSLATIONS = {
         "chart_downtime_min":   "\u505c\u673a\u65f6\u957f (min)",
         "chart_events_table":   "\u8fd1\u671f\u4e8b\u4ef6",
         "date_range":           "\u65f6\u95f4\u8303\u56f4",
+        "tr_auto_refresh":      "\u5237\u65b0",
+        "tr_refresh_off":       "\u5173\u95ed",
     },
     "fr": {
         "page1_title":          "Vue op\u00e9rationnelle",
@@ -258,6 +263,8 @@ TRANSLATIONS = {
         "chart_downtime_min":   "Arr\u00eat (min)",
         "chart_events_table":   "\u00c9v\u00e9nements r\u00e9cents",
         "date_range":           "P\u00e9riode",
+        "tr_auto_refresh":      "Rafra\u00eech.",
+        "tr_refresh_off":       "Arr\u00eat",
     },
 }
 
