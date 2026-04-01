@@ -1,0 +1,12 @@
+The data is pulled from the WinCC database of your visualization.
+A background service periodically exports new data to CSV files on the hard drive or a network drive that is mounted on the machine.
+As an attachment, you find a sample CSV file of the variable “rotational speed”
+data can be exported as CSV, TSV, JSONL
+you can choose to have one file per variable, or a single file containing the values of all variables
+if the file grows to large, it can be auto-split
+The background service runs on the same machine or a different machine in the same computer network. If you choose to use a different machine, please make it available in your network and provide remote access for us to do the setup.
+You can pull the data from the hard drive or network drive.
+Limited by WinCC, data usually is max 1 year old.
+Data points/tags need to be explicitly marked for archiving before they become available as historical data that can be exported.
+Thus we ask you to send us a list of the desired data points/tags so that we can set up their archiving.
+ 

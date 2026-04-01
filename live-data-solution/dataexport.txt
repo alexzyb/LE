@@ -1,0 +1,286 @@
+Hi Harald,
+
+ 
+
+Any update on your progress?
+
+ 
+
+Thanks
+
+ 
+
+Regards 
+
+
+
+ Ian Robertson
+
+ Continuous Improvement Engineer
+
+  
+
+
+
+Land Energy Girvan Limited
+
+19 Ladywell Avenue
+
+Girvan, KA26 9PF
+
+UK
+
+ 
+
+Site Reception : +44 (0) 1465 716 010
+
+Mobile : +44 (0) 7907 729 636
+
+www.land-energy.com
+
+Land Energy Girvan is a private limited company registered in England and Wales. Reg No 6813953
+
+From: Harald Söllinger [Baumgartner Automation GmbH] <soellinger@baumgartner-automation.at>
+Sent: Friday, February 27, 2026 06:16
+To: Ian Robertson <IanRobertson@land-energy.co.uk>; Christian Niederreiter <niederreiter@baumgartner-automation.at>
+Subject: [External] AW: Progress on project for continuous extraction of datapoints
+
+ 
+
+[External] : This email has been received from outside Land Energy’s network, treat links and attachments with caution
+
+Good Morning Ian
+
+ 
+
+We are waiting of an answer from you for our Mail from February the 23rd. See the attachment.
+
+We need the final list of the data points for the export in the CSV-File.
+
+The list I sent you was simply a compilation from email correspondence and needs to be confirmed by you.
+
+Furthermore, we need information about the storage location for the CSV file export.
+
+ 
+
+I´m next week not in the office. Please write the answer to my college @Christian Niederreiter
+
+ 
+
+Thank you.
+
+ 
+
+ 
+
+Mit freundlichen Grüßen
+
+Best Regards
+
+ 
+
+Harald Söllinger
+
+Manager Software Engineering
+
+ 
+
+Ein Bild, das Grafiken, Grafikdesign, Screenshot, Kreis enthält.
+
+Automatisch generierte Beschreibung
+
+ 
+
+M: +43 676  85 12 36 243
+
+soellinger@baumgartner-automation.at
+
+www.baumgartner-automation.at
+
+ 
+
+Ein Bild, das Schrift, Grafiken, Grafikdesign, Screenshot enthält.
+
+Automatisch generierte Beschreibung
+
+Baumgartner Automation GmbH
+Badgasse 5 | 4673 Gaspoltshofen | AUSTRIA
+Firmenbuchgericht: Wels | FN:105576i | UID-Nr.: ATU 64883344
+
+ 
+
+ 
+
+
+
+ 
+
+From: Ian Robertson <IanRobertson@land-energy.co.uk>
+Sent: Friday, February 27, 2026 08:44
+To: Harald Söllinger [Baumgartner Automation GmbH] <soellinger@baumgartner-automation.at>; Christian Niederreiter <niederreiter@baumgartner-automation.at>
+Subject: Re: [External] AW: Progress on project for continuous extraction of datapoints
+
+ 
+
+Caution: This is an external email and may be malicious. Please take care when clicking links or opening attachments.
+
+ 
+
+Thanks Harald,
+
+ 
+
+The list of data points is acceptable.
+
+ 
+
+Please confirm the frequency of data update we are working with?
+
+ 
+
+I will confirm where to deposit the CSV as soon as I'm advised by the developer. 
+
+ 
+
+ 
+
+Regards 
+
+
+
+ Ian Robertson
+
+ Continuous Improvement Engineer
+
+  
+
+
+
+Land Energy Girvan Limited
+
+19 Ladywell Avenue
+
+Girvan, KA26 9PF
+
+UK
+
+ 
+
+Site Reception : +44 (0) 1465 716 010
+
+Mobile : +44 (0) 7907 729 636
+
+www.land-energy.com
+
+Land Energy Girvan is a private limited company registered in England and Wales. Reg No 6813953
+
+From: Christian Niederreiter <niederreiter@baumgartner-automation.at>
+Sent: 27 February 2026 08:38
+To: Ian Robertson <IanRobertson@land-energy.co.uk>
+Cc: Harald Söllinger [Baumgartner Automation GmbH] <soellinger@baumgartner-automation.at>
+Subject: RE: [External] AW: Progress on project for continuous extraction of datapoints
+ 
+[External] : This email has been received from outside Land Energy’s network, treat links and attachments with caution
+
+Hello Ian,
+
+ 
+
+Our Change Data Capture service exporting the data currently reads new records once 10 seconds (all newly appeared records in a batch; maximum batch size 1000). But this delay can easily be reduced to 0.
+
+ 
+
+Between writes, unfinished CSV files may be read or copied.
+
+ 
+
+Suggested file system structure (1 file per sensor per day):
+
+ 
+
+📂Pellet_Mill_1\📂act_Current\📄2026-02-27.csv
+
+📂Pellet_Mill_1\📂act_Current\📄2026-02-28.csv
+
+📂Pellet_Mill_1\📂act_Current\📄2026-03-01.csv
+
+…
+
+📂Pellet_Mill_1\📂act_Speed_P1.550\📄2026-02-27.csv
+
+…
+
+📂Pellet_Mill_1\📂Roller_temp_left\📄2026-02-27.csv
+
+…
+
+📂Pellet_Mill_1\📂Roller_temp_right\📄2026-02-27.csv
+
+…
+
+📂Pellet_Mill_1\📂kWh_T\📄2026-02-27.csv
+
+…
+
+ 
+
+We can adjust structure and names to your needs.
+
+ 
+
+ 
+
+Mit freundlichen Grüßen
+
+Best Regards
+
+ 
+
+Christian Niederreiter
+
+Senior Cloud Engineer
+
+ 
+
+Ein Bild, das Grafiken, Grafikdesign, Screenshot, Kreis enthält.
+
+Automatisch generierte Beschreibung
+
+ 
+
+M: +43 676 851 236 248
+
+niederreiter@baumgartner-automation.at
+
+www.baumgartner-automation.at
+
+ 
+
+Ein Bild, das Schrift, Grafiken, Grafikdesign, Screenshot enthält.
+
+Automatisch generierte Beschreibung
+
+Baumgartner Automation GmbH
+Badgasse 5 | 4673 Gaspoltshofen | AUSTRIA
+Firmenbuchgericht: Wels | FN:105576i | UID-Nr.: ATU 64883344
+
+ 
+
+
+
+Ian Robertson<IanRobertson@land-energy.co.uk>
+
+​Christian Niederreiter <niederreiter@baumgartner-automation.at>;​
+Yingbo Zhu​
+Warning: Do not open attachments or click on links unless you trust the sender
+
+
+Christian,
+
+Thanks for this information,
+
+@Yingbo Zhu
+
+For your reference as to the proposed file structure. Do you have any comments?
+
+Where would you like this deposited?
