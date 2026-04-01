@@ -6,8 +6,13 @@ thresholds.json (written by the Settings panel).
 """
 
 import json
+import os
 from copy import deepcopy
 from pathlib import Path as _Path
+
+# ─── Runtime Environment (Phase 8 live data) ─────────────────────────────────
+DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+BG_EXPORT_DIR = os.getenv("BG_EXPORT_DIR", "").strip()
 
 # ─── Colour Palette (dark SCADA theme) ───────────────────────────────────────
 COLOR_SCHEME = {
@@ -213,6 +218,13 @@ DEFAULT_THRESHOLDS = {
         "unit": "t/h",
         "cols": [51],
     },
+    "pellet_silo_level": {
+        "label": "Pellet Silo Level",
+        "mode": "dual",
+        "red_low": 10, "green_min": 20, "green_max": 85, "red_high": 95,
+        "unit": "%",
+        "cols": [48, 49, 50],
+    },
     "valve_position": {
         "label": "Valve Position",
         "mode": "dual",
@@ -235,7 +247,7 @@ THRESHOLD_GROUPS = {
     "Dryer":      ["dryer_outlet_moisture", "dry_silo_level", "dryer_out_feed"],
     "Quality":    ["durability", "pellet_moisture_finished", "avg_pellet_length", "bulk_density"],
     "CHP":        ["furnace_temp", "thermal_oil_out", "turbine_power"],
-    "Throughput": ["belt_weigher_hourly"],
+    "Throughput": ["belt_weigher_hourly", "pellet_silo_level"],
     "Other":      ["main_filter_kp", "valve_position"],
 }
 

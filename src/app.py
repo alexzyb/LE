@@ -41,6 +41,12 @@ server = app.server
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
+def _default_date_bounds():
+    min_dt, max_dt = _data.get_date_range()
+    if min_dt and max_dt:
+        return min_dt[:10], max_dt[:10]
+    return "2026-01-01", "2026-02-01"
+
 def _query(sql, params=None):
     if not DB_PATH.exists():
         return pd.DataFrame()
@@ -128,22 +134,25 @@ def G(fig, height=None):
 # ─── KPI row ──────────────────────────────────────────────────────────────────
 
 def _get_latest_row():
-    df = _query(
-        'SELECT * FROM shift_protocol'
-        ' WHERE "Date Time" IS NOT NULL ORDER BY "Date Time" DESC LIMIT 1'
-    )
-    return df.iloc[0].to_dict() if not df.empty else None
+    min_dt, max_dt = _data.get_date_range()
+    if not max_dt:
+        return None
+    # Query one-day window around latest timestamp using unified data layer.
+    day = str(max_dt)[:10]
+    df = _data.get_shift_df(day, day)
+    if df.empty:
+        return None
+    return df.sort_values("Date Time").iloc[-1].to_dict()
 
 
 def _daily_output(date_prefix):
-    df = _query(
-        'SELECT "Total Pellets passed belt weigher (cumlative)" AS c'
-        ' FROM shift_protocol WHERE "Date Time" LIKE ? ORDER BY "Date Time"',
-        params=[f"{date_prefix}%"],
-    )
+    df = _data.get_shift_df(date_prefix, date_prefix)
     if df.empty:
         return None
-    vals = df["c"].dropna()
+    col = "Total Pellets passed belt weigher (cumlative)"
+    if col not in df.columns:
+        return None
+    vals = pd.to_numeric(df[col], errors="coerce").dropna()
     return round(float(vals.iloc[-1]) - float(vals.iloc[0]), 1) if len(vals) >= 2 else None
 
 
@@ -398,7 +407,7 @@ def _ov_quality_cell(label, value, unit, color="grey"):
 
 
 def overview_layout(lang, start_date, end_date):
-    """P1: High-level KPI cards + Quality grid."""
+    """P1: Production + Mill + Pellet Silo + Dispatch."""
     df = _data.get_shift_df(start_date, end_date)
 
     # ── helpers ───────────────────────────────────────────────────────────────
@@ -451,73 +460,60 @@ def overview_layout(lang, start_date, end_date):
         ]),
     ], className="mb-2")
 
-    # ── ENERGY ────────────────────────────────────────────────────────────────
-    turbine  = _latest("Turbine Generated Power kW")
-    turb_clr = threshold_color("turbine_power", turbine)
-    furnace  = _latest("Furnace Temp")
-    furn_clr = threshold_color("furnace_temp", furnace)
-    thermal  = _latest("Thermal Oil OUT")
-    therm_clr = threshold_color("thermal_oil_out", thermal)
-    hru      = _latest("HRU Bypass Damper")
-
-    energy_section = html.Div([
-        html.H6(t("cat_energy", lang), className="overview-section-title"),
+    # ── MILL STATUS ───────────────────────────────────────────────────────────
+    amps = [_latest("Press 1 - Load Amps"), _latest("Press 2 - Load Amps"), _latest("Press 3 - Load Amps")]
+    mill_section = html.Div([
+        html.H6(t("cat_mill", lang), className="overview-section-title"),
         dbc.Row([
-            _ov_card(t("ov_turbine", lang),      _fmt(turbine, 0), "kW",  turb_clr),
-            _ov_card(t("ov_furnace_temp", lang), _fmt(furnace, 0), "\u00b0C", furn_clr),
-            _ov_card(t("ov_thermal_oil", lang),  _fmt(thermal, 0), "\u00b0C", therm_clr),
-            _ov_card(t("ov_hru_bypass", lang),   _fmt(hru, 0),     "%"),
+            _ov_card("Mill 1", _fmt(amps[0], 0), "A", threshold_color("press_load_amps", amps[0])),
+            _ov_card("Mill 2", _fmt(amps[1], 0), "A", threshold_color("press_load_amps", amps[1])),
+            _ov_card("Mill 3", _fmt(amps[2], 0), "A", threshold_color("press_load_amps", amps[2])),
         ]),
     ], className="mb-2")
 
-    # ── DRYER ─────────────────────────────────────────────────────────────────
-    dryer_feed = _latest("Dryer out feed t/h")
-    dryer_clr  = threshold_color("dryer_out_feed", dryer_feed)
-    moisture   = _latest("Moisture %  Actual Value at Dryer Outlet")
-    moist_clr  = threshold_color("dryer_outlet_moisture", moisture)
-    silo1      = _latest("Dry Silo 1 Level %")
-    silo1_clr  = threshold_color("dry_silo_level", silo1)
-    silo2      = _latest("Dry Silo 2 Level %")
-    silo2_clr  = threshold_color("dry_silo_level", silo2)
-
-    dryer_section = html.Div([
-        html.H6(t("cat_dryer", lang), className="overview-section-title"),
+    # ── PELLET SILO ───────────────────────────────────────────────────────────
+    from column_map import tons_to_pct
+    s1_t = _latest("Pellet Silo Level 1 Readout")
+    s2_t = _latest("Pellet Silo Level 2 Readout")
+    s3_t = _latest("Pellet Silo Level 3 Readout")
+    s1 = tons_to_pct(s1_t, "Pellet Silo Level 1 Readout")
+    s2 = tons_to_pct(s2_t, "Pellet Silo Level 2 Readout")
+    s3 = tons_to_pct(s3_t, "Pellet Silo Level 3 Readout")
+    silo_section = html.Div([
+        html.H6(t("cat_pellet_silo", lang), className="overview-section-title"),
         dbc.Row([
-            _ov_card(t("ov_dryer_feed", lang),      _fmt(dryer_feed), "t/h", dryer_clr),
-            _ov_card(t("ov_outlet_moisture", lang), _fmt(moisture),   "%",   moist_clr),
-            _ov_tank(t("ov_dry_silo_1", lang), silo1, _fmt(silo1, 0), silo1_clr),
-            _ov_tank(t("ov_dry_silo_2", lang), silo2, _fmt(silo2, 0), silo2_clr),
+            _ov_tank("Silo 1", s1, _fmt(s1, 0), threshold_color("pellet_silo_level", s1)),
+            _ov_tank("Silo 2", s2, _fmt(s2, 0), threshold_color("pellet_silo_level", s2)),
+            _ov_tank("Silo 3", s3, _fmt(s3, 0), threshold_color("pellet_silo_level", s3)),
         ]),
     ], className="mb-2")
 
-    # ── QUALITY (2×3 grid) ────────────────────────────────────────────────────
-    dur  = _latest("Durability %")
-    dens = _latest("Bulk  Density g/l")
-    pmoi = _latest("Pellet Moisture %")
-    ptmp = _latest("Temp of Pellets at cooler")
-    plen = _latest("Average Pellet Length(mm)")
+    # ── DISPATCH ──────────────────────────────────────────────────────────────
+    def _delta(col):
+        if df.empty or col not in df.columns:
+            return None
+        vals = pd.to_numeric(df[col], errors="coerce").dropna()
+        if len(vals) < 2:
+            return None
+        return float(vals.iloc[-1] - vals.iloc[0])
 
-    dur_clr  = threshold_color("durability", dur)
-    dens_clr = threshold_color("bulk_density", dens)
-    pmoi_clr = threshold_color("pellet_moisture_finished", pmoi)
-    plen_clr = threshold_color("avg_pellet_length", plen)
-
-    quality_section = html.Div([
-        html.H6(t("cat_quality", lang), className="overview-section-title"),
-        html.Div([
-            _ov_quality_cell(t("ov_durability", lang),       _fmt(dur),  "%",   dur_clr),
-            _ov_quality_cell(t("ov_density", lang),          _fmt(dens, 0), "g/l", dens_clr),
-            _ov_quality_cell(t("ov_pellet_moisture", lang),  _fmt(pmoi), "%",   pmoi_clr),
-            _ov_quality_cell(t("ov_pellet_temp", lang),      _fmt(ptmp, 0), "\u00b0C"),
-            _ov_quality_cell(t("ov_pellet_length", lang),    _fmt(plen, 0), "mm",  plen_clr),
-        ], className="quality-grid"),
+    bag = _delta("_bagging_totaliser")
+    truck = _delta("_truck_totaliser")
+    total_dispatch = (bag or 0) + (truck or 0)
+    dispatch_section = html.Div([
+        html.H6(t("cat_dispatch", lang), className="overview-section-title"),
+        dbc.Row([
+            _ov_card(t("ov_bagging", lang), _fmt(bag, 0), "t"),
+            _ov_card(t("ov_truck", lang), _fmt(truck, 0), "t"),
+            _ov_card(t("ov_dispatch_total", lang), _fmt(total_dispatch, 0), "t", "green"),
+        ]),
     ], className="mb-2")
 
     return html.Div([
         prod_section,
-        energy_section,
-        dryer_section,
-        quality_section,
+        mill_section,
+        silo_section,
+        dispatch_section,
     ])
 
 
@@ -525,7 +521,6 @@ def overview_layout(lang, start_date, end_date):
 
 def page1_layout(lang, start_date, end_date):
     df        = _data.get_shift_df(start_date, end_date)
-    events_df = _data.get_events_df(start_date, end_date)
 
     # Period cumulative output (Col 45 diff)
     cum_col = "Total Pellets passed belt weigher (cumlative)"
@@ -539,10 +534,8 @@ def page1_layout(lang, start_date, end_date):
     panel_items = [
         (t("panel_production", lang), "sec-production"),
         (t("panel_mill",       lang), "sec-mill"),
-        (t("panel_dryer",      lang), "sec-dryer"),
-        (t("panel_quality",    lang), "sec-quality"),
-        (t("panel_chp",        lang), "sec-chp"),
-        (t("panel_downtime",   lang), "sec-downtime"),
+        (t("panel_pellet_silo", lang), "sec-silo"),
+        (t("panel_dispatch",    lang), "sec-dispatch"),
     ]
     panel_nav = html.Div(
         [html.A(title, href=f"#{pid}", className="panel-nav-btn")
@@ -593,37 +586,16 @@ def page1_layout(lang, start_date, end_date):
         ], className="g-2 mt-2"),
     ], "sec-mill")
 
-    # ── Panel 3: Dryer ────────────────────────────────────────────────────────
-    dryer_panel = section_panel(t("panel_dryer", lang), [
+    silo_panel = section_panel(t("panel_pellet_silo", lang), [
         dbc.Row([
-            dbc.Col(G(_charts.fig_dry_silos(df),      height=240), md=4),
-            dbc.Col(G(_charts.fig_dryer_moisture(df), height=240), md=8),
+            dbc.Col(G(_charts.fig_pellet_silos(df),     height=240), md=4),
+            dbc.Col(G(_charts.fig_silo_level_trend(df), height=240), md=8),
         ], className="g-2"),
-    ], "sec-dryer")
+    ], "sec-silo")
 
-    # ── Panel 4: Quality ──────────────────────────────────────────────────────
-    quality_panel = section_panel(t("panel_quality", lang), [
-        _quality_cards(df, lang),
-        G(_charts.fig_quality_trends(df), height=380),
-    ], "sec-quality")
-
-    # ── Panel 5: CHP ─────────────────────────────────────────────────────────
-    chp_panel = section_panel(t("panel_chp", lang), [
-        dbc.Row([
-            dbc.Col(G(_charts.fig_turbine_gauge(df), height=200), md=4),
-            dbc.Col(G(_charts.fig_chp_trend(df),     height=200), md=8),
-        ], className="g-2"),
-        G(_charts.fig_hru_damper(df), height=160),
-    ], "sec-chp")
-
-    # ── Panel 6: Downtime ─────────────────────────────────────────────────────
-    downtime_panel = section_panel(t("panel_downtime", lang), [
-        html.Div(_events_table(events_df), style={"marginBottom": "12px"}),
-        dbc.Row([
-            dbc.Col(G(_charts.fig_downtime_pareto(events_df), height=280), md=6),
-            dbc.Col(G(_charts.fig_area_downtime(events_df),   height=280), md=6),
-        ], className="g-2"),
-    ], "sec-downtime")
+    dispatch_panel = section_panel(t("panel_dispatch", lang), [
+        G(_charts.fig_dispatch_trend(df), height=260),
+    ], "sec-dispatch")
 
     # ── Full data table ───────────────────────────────────────────────────────
     data_table_panel = html.Div(html.Div([
@@ -639,10 +611,8 @@ def page1_layout(lang, start_date, end_date):
         build_kpi_row(lang),
         prod_panel,
         mill_panel,
-        dryer_panel,
-        quality_panel,
-        chp_panel,
-        downtime_panel,
+        silo_panel,
+        dispatch_panel,
         data_table_panel,
     ])
 
@@ -693,6 +663,7 @@ def page2_layout(lang):
     ])
 
 
+
 # ─── Static app layout ────────────────────────────────────────────────────────
 
 app.layout = html.Div([
@@ -721,10 +692,10 @@ app.layout = html.Div([
                       className="topbar-label"),
             dcc.DatePickerRange(
                 id="date-picker",
-                min_date_allowed="2026-01-01",
-                max_date_allowed="2026-02-01",
-                start_date="2026-01-01",
-                end_date="2026-02-01",
+                min_date_allowed=_default_date_bounds()[0],
+                max_date_allowed=_default_date_bounds()[1],
+                start_date=_default_date_bounds()[0],
+                end_date=_default_date_bounds()[1],
                 display_format="DD/MM/YYYY",
                 className="dash-date-picker mx-1",
             ),
@@ -906,6 +877,26 @@ def highlight_active_qr(time_mode):
 
 
 @app.callback(
+    [Output("date-picker", "min_date_allowed"),
+     Output("date-picker", "max_date_allowed"),
+     Output("date-picker", "start_date"),
+     Output("date-picker", "end_date")],
+    [Input("url", "pathname"),
+     Input("btn-apply", "n_clicks"),
+     Input("auto-refresh-interval", "n_intervals")],
+    [State("date-picker", "start_date"),
+     State("date-picker", "end_date")],
+)
+def sync_date_picker_bounds(_pathname, _apply, _n_int, start_date, end_date):
+    min_date, max_date = _default_date_bounds()
+    start = start_date or min_date
+    end = end_date or max_date
+    start = max(min_date, min(start, max_date))
+    end = max(start, min(end, max_date))
+    return min_date, max_date, start, end
+
+
+@app.callback(
     Output("page-content", "children"),
     [Input("url",                   "pathname"),
      Input("store-lang",            "data"),
@@ -935,8 +926,9 @@ def render_page(pathname, lang, _n, _tv, time_mode, _n_int,
         start_date = (now - delta).strftime("%Y-%m-%dT%H:%M:%S")
         end_date   = now.strftime("%Y-%m-%dT%H:%M:%S")
     else:
-        start_date = start_date or "2026-01-01"
-        end_date   = end_date   or "2026-02-01"
+        min_date, max_date = _default_date_bounds()
+        start_date = start_date or min_date
+        end_date   = end_date   or max_date
 
     if pathname == "/ops":
         return page1_layout(lang, start_date, end_date)

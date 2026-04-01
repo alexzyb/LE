@@ -10,6 +10,7 @@ import pandas as pd
 import numpy as np
 
 from config import get_thresholds
+from column_map import tons_to_pct
 
 # ─── Dark SCADA colours ───────────────────────────────────────────────────────
 BG      = "#1a1a2e"
@@ -111,7 +112,7 @@ def fig_production_lines(df: pd.DataFrame) -> go.Figure:
 
 
 def fig_pellet_silos(df: pd.DataFrame) -> go.Figure:
-    """Horizontal bar: latest Pellet Silo 1/2/3 levels (tonnes)."""
+    """Horizontal bar: latest Pellet Silo 1/2/3 levels (% capacity)."""
     if df.empty:
         return _empty()
 
@@ -123,22 +124,86 @@ def fig_pellet_silos(df: pd.DataFrame) -> go.Figure:
 
     names, vals, colors = [], [], []
     for col, label, color in silo_map:
-        v = _latest(df, col)
+        t = _latest(df, col)
+        v = tons_to_pct(t, col) if t is not None else None
         names.append(label)
         vals.append(v if v is not None else 0)
         colors.append(color)
 
-    fig = _fig(title=dict(text="Pellet Silo Levels (t)", font=dict(size=13)))
+    fig = _fig(title=dict(text="Pellet Silo Levels (%)", font=dict(size=13)))
     fig.add_trace(go.Bar(
         y=names, x=vals, orientation="h",
         marker_color=colors,
-        text=[f"{v:.0f}\u202ft" for v in vals],
+        text=[f"{v:.0f}%" for v in vals],
         textposition="outside",
         textfont=dict(color=TEXT, size=11),
     ))
     fig.update_layout(
-        xaxis=dict(title="tonnes"),
+        xaxis=dict(title="% of capacity", range=[0, 100]),
         margin=dict(l=58, r=80, t=38, b=40),
+    )
+    return fig
+
+
+def fig_silo_level_trend(df: pd.DataFrame) -> go.Figure:
+    """Trend lines for Pellet Silo 1/2/3 level in % capacity."""
+    if df.empty:
+        return _empty()
+    fig = _fig(title=dict(text="Pellet Silo Level Trend (%)", font=dict(size=13)))
+    for col, name, clr in [
+        ("Pellet Silo Level 1 Readout", "Silo\u202f1", MILL_CLR[0]),
+        ("Pellet Silo Level 2 Readout", "Silo\u202f2", MILL_CLR[1]),
+        ("Pellet Silo Level 3 Readout", "Silo\u202f3", MILL_CLR[2]),
+    ]:
+        if col in df.columns:
+            y = df[col].apply(lambda v: tons_to_pct(v, col) if pd.notna(v) else np.nan)
+            fig.add_trace(go.Scatter(
+                x=df["Date Time"], y=y,
+                name=name, line=dict(color=clr, width=1.6), mode="lines",
+            ))
+    fig.update_layout(
+        yaxis=dict(title="%", range=[0, 100]),
+        legend=dict(orientation="h", y=-0.22),
+    )
+    return fig
+
+
+def fig_dispatch_trend(df: pd.DataFrame) -> go.Figure:
+    """Dispatch cumulative deltas (bagging/truck/total) over selected range."""
+    if df.empty:
+        return _empty()
+
+    bag_col = "_bagging_totaliser"
+    truck_col = "_truck_totaliser"
+    if bag_col not in df.columns and truck_col not in df.columns:
+        return _empty("No dispatch data in selected range")
+
+    fig = _fig(title=dict(text="Dispatch Trend (t, Δ from period start)", font=dict(size=13)))
+    dt = df["Date Time"]
+    total_series = None
+
+    for col, name, clr in [
+        (bag_col, "Bagging", MILL_CLR[0]),
+        (truck_col, "Truck", MILL_CLR[1]),
+    ]:
+        if col in df.columns:
+            s = pd.to_numeric(df[col], errors="coerce")
+            s = s - s.dropna().iloc[0] if s.dropna().size else s
+            fig.add_trace(go.Scatter(
+                x=dt, y=s,
+                name=name, line=dict(color=clr, width=1.6), mode="lines",
+            ))
+            total_series = s if total_series is None else total_series.add(s, fill_value=0)
+
+    if total_series is not None:
+        fig.add_trace(go.Scatter(
+            x=dt, y=total_series,
+            name="Total Dispatch", line=dict(color=GREEN, width=2.2), mode="lines",
+        ))
+
+    fig.update_layout(
+        yaxis=dict(title="tonnes"),
+        legend=dict(orientation="h", y=-0.22),
     )
     return fig
 
