@@ -6,6 +6,7 @@ resamples to 30s buckets, pivots to wide format, and UPSERTs into SQLite.
 
 Usage:
   python src/ingest.py --once --source BaumgartnerData
+  python src/ingest.py --watch --interval 30 --source D:/CSVData/BaumgartnerData
 """
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import sqlite3
+import time
 from pathlib import Path
 
 import pandas as pd
@@ -171,12 +173,25 @@ def run_once(source: Path) -> int:
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--once", action="store_true", help="Run a single ingest cycle")
+    parser.add_argument("--watch", action="store_true", help="Continuously ingest in a loop")
+    parser.add_argument("--interval", type=int, default=30, help="Watch loop interval (seconds)")
     parser.add_argument("--source", default=BG_EXPORT_DIR or "BaumgartnerData")
     args = parser.parse_args()
 
     source = Path(args.source)
     if args.once:
         run_once(source)
+        return
+
+    if args.watch:
+        interval = max(1, int(args.interval or 30))
+        print(f"[ingest] watch mode started. source={source} interval={interval}s")
+        while True:
+            try:
+                run_once(source)
+            except Exception as e:
+                print(f"[ingest] loop error: {e}")
+            time.sleep(interval)
         return
 
     # Default behavior: single pass for now (safe for non-daemon environments).

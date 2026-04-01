@@ -87,3 +87,4 @@
 | 2026-04-01 | 8c | 首版页面重组落地：Overview 切为 Production/Mill/Pellet Silo/Dispatch；Detail 切为 4 面板；新增 silo 百分比趋势和 dispatch 趋势图；三语 key 补充完成，待 ingest 联调与端到端验收 |
 | 2026-04-01 | 8a | config/data 首轮落地：新增 DATABASE_URL/BG_EXPORT_DIR 与 pellet_silo_level 阈值；data 层改为 live_data 优先、shift_protocol 回退，并在显示时应用 column_map 清洗规则 |
 | 2026-04-01 | 8b | 新增 `src/ingest.py`（增量偏移 + 30s重采样 + 宽表UPSERT）；生成 `src/ingest_state.json`；完成 BaumgartnerData 样本导入验证，`live_data` 成功写入 86,698 行 |
+| 2026-04-01 | 8b | 为 24h 常驻场景新增 ingest 守护模式：`--watch --interval N`，支持持续增量同步 CSV→DB（默认建议 30s） |
