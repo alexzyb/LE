@@ -22,7 +22,7 @@ Quick cloud deployment for demo purposes. Free tier available.
 ### Notes
 - **Auto-Deploy**: enabled by default — every push to `main` triggers redeployment
 - **Free tier**: app sleeps after 15 min of inactivity, ~30s cold start on next visit
-- **Database**: SQLite file is committed to git; resets to repo state on each deploy (fine for static demo data)
+- **Database**: SQLite (`live_data` 表，由 `ingest.py` 写入)。Render 部署仅适用于 Demo；生产部署详见 `docs/phase8-live-data.md` §8
 - **To disable auto-deploy**: Render Dashboard → Service → Settings → toggle off
 
 ### Local Testing with Gunicorn

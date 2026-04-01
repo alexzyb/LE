@@ -67,12 +67,12 @@ LE/
 
 - **Dark SCADA Theme** — Grafana-inspired dark UI, key numbers readable from 2 metres
 - **Trilingual** — English, Chinese, French; switch via top bar
-- **Configurable Thresholds** — 16 parameters across 6 groups, persisted to JSON
+- **Configurable Thresholds** — 4 active parameters (Press Amps, Belt Weigher, Feeder %, Pellet Silo Level), persisted to JSON
 - **Real-time Colour Coding** — Green/Yellow/Red indicators on KPIs and charts
-- **6 Operational Panels** — Production & Throughput, Mill Health, Dryer & Feed, Quality Control, CHP & Energy, Downtime & Events
+- **4 Operational Panels** — Production & Throughput, Mill Health & Load, Pellet Silo, Dispatch
 - **Grafana-Style Time Control** — Quick range buttons (1m / 30m / 1h / 6h / 24h) + auto-refresh (Off / 5s / 30s / 1min) with pulsing indicator
-- **Dry Silo Tank Level** — CSS liquid-fill visual for silo percentage on Overview page
-- **Full Data Table** — 52-column scrollable table with sorting
+- **Pellet Silo Tank Level** — CSS liquid-fill visual for silo percentage on Overview page
+- **Full Data Table** — Scrollable table with sorting
 
 ## License
 

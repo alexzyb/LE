@@ -8,95 +8,79 @@
 ## 1. In Scope — 完整功能清单
 
 ### 1.1 基础设施
-- **本地 SQLite 数据库** (`land_energy.db`): 导入 3 个 CSV，支持时间范围筛选查询
+- **本地 SQLite 数据库** (`land_energy.db`): BG 实时 CSV 由 `ingest.py` 增量写入 `live_data` 表，支持时间范围筛选查询
 - **三语支持 (i18n)**: EN / 中文 / Français，顶栏切换器，所有 UI 文本均翻译（详见 `docs/i18n-spec.md`）
-- **阈值设置面板**: 16 个参数的 🟢🟡🔴 颜色边界可通过 UI 实时调整（详见 `docs/thresholds.md`）
+- **阈值设置面板**: 4 个有效参数的 🟢🟡🔴 颜色边界可通过 UI 实时调整（详见 `docs/thresholds.md`）
 - **Logo**: 从 https://www.land-energy.com/ 获取，放置在 Dashboard 左上角
 
 ### 1.2 Page 1 — KPI 总览 (`/`)
 
 > 首页 Landing Page，大字体 KPI 卡片，一眼总览工厂状态。
+> **Phase 8 更新**: 数据源切换为 BG 实时 CSV。Energy/Dryer/Quality 无 BG 数据，已移除。
 
-**4 大类 KPI 卡片 (共 12 张)**:
+**4 大类 KPI (共 14 个)**:
 
 | 分类 | 卡片 1 | 卡片 2 | 卡片 3 | 卡片 4 |
 |------|--------|--------|--------|--------|
 | Production | Daily Output (t) | Hourly Rate (t/h) | Mills Running (x/3) | Period Total (t) |
-| Energy | Turbine Power (kW) | Furnace Temp (°C) | Thermal Oil OUT (°C) | HRU Bypass (%) |
-| Dryer | Dryer Feed (t/h) | Outlet Moisture (%) | Dry Silo 1 (%) | Dry Silo 2 (%) |
+| Mill Status | Mill 1 Amps (A) | Mill 2 Amps (A) | Mill 3 Amps (A) | — |
+| Pellet Silo | Silo 1 (% 液位罐) | Silo 2 (% 液位罐) | Silo 3 (% 液位罐) | — |
+| Dispatch | Bagging Today (t) | Truck Today (t) | Total Dispatch (t) | — |
 
-**Quality 2×3 网格** (5 个指标):
-- Row 1: Durability % | Bulk Density g/l | Pellet Moisture %
-- Row 2: Pellet Temp °C | Avg Length mm | (空)
-- 注: Pellet Fines % 在 CSV 中无此列，已去掉
+**Pellet Silo 显示**: 使用 `_ov_tank()` 液位罐组件（与 Dry Silo 相同风格），Fuel_Level 吨数 → 百分比换算。
 
 **设计要求**:
 - KPI 数值字体 ≥ 52px，2 米外可读
 - 左侧彩色边框表示阈值状态 (🟢🟡🔴)
-- Quality 网格每格带颜色边框
+- Pellet Silo 液位罐带阈值颜色填充
 - DateRange 联动刷新全部卡片
 
 ### 1.3 Page 2 — Detailed Operations (`/ops`)
 
+> **Phase 8 更新**: 面板从 6 个改为 4 个，移除无 BG 数据的 Dryer/Quality/CHP/Downtime。
+
 **顶栏**:
 - Land Energy Logo + 工厂名 "Girvan Pellet Plant"
-- Date Range Picker（默认 2026-01-01 ~ 2026-02-01）
+- Date Range Picker（默认自动适配数据库实际时间范围）
 - 🌐 语言切换器 (EN | 中 | FR)
 - ⚙️ 阈值设置按钮（打开 Modal/Sidebar）
+- Grafana 风格时间控制: 快速范围 (1m/30m/1h/6h/24h) + 自动刷新 (Off/5s/30s/1min)
 
-**KPI 卡片行** (6 张卡片):
+**KPI 卡片行** (4 张卡片):
 | 卡片 | 数据来源 | 颜色 |
 |------|----------|------|
 | OEE % | **无计算** — 灰色占位，显示 "— %"，底注 "Insufficient Data" | 固定灰色 |
-| Daily Output (t) | Col 45 累计值差值（当日最新 - 当日起始） | 无颜色 |
-| Rate (t/h) | Col 51 `Total tons passed belt weigher (hour)` 最新记录 | 按 Belt Weigher 阈值 |
+| Daily Output (t) | Totaliser 累计差值（当日最新 - 当日起始） | 无颜色 |
+| Rate (t/h) | `Total tons passed belt weigher (hour)` 最新记录 | 按 Belt Weigher 阈值 |
 | Mills Status | 3 台磨机 Amps > 50A = Running → 显示 "2/3 Running" | 全运行🟢 部分🟡 全停🔴 |
-| Dryer Feed (t/h) | Col 8 `Dryer out feed t/h` 最新值 | 按 Dryer Feed 阈值 |
-| Events (24h) | Events_Log 过去 24h 事件计数 | >10🔴 5-10🟡 <5🟢 |
 
-**分区面板** (6 个面板，可折叠或 Tab 切换):
+**分区面板** (4 个面板):
 
 #### Panel 1: Production & Throughput（产量与生产率）
-- **趋势线 1**: `Total tons passed belt weigher (hour)` (Col 51) — 含 20 t/h 水平目标参考线
-- **趋势线 2**: `Dryer out feed t/h` (Col 8) — 与趋势线 1 同图或上下排列
-- ⚠️ 两条线的图表标题必须标注精确数据来源列名，不可混淆
-- **累计产量大数卡**: 从 Col 45 差值计算的班次/日产量
-- **Pellet Silo 1/2/3 库存柱状图**: Col 48/49/50，单位=吨，柱状图
+- **趋势线**: `Total tons passed belt weigher (hour)` — 含 20 t/h 水平目标参考线
+- **累计产量大数卡**: Totaliser 差值计算的班次/日产量
+- **Pellet Silo 液位罐 (×3)**: 百分比 tank overlay（仿 Dry Silo 风格），带阈值颜色
 
 #### Panel 2: Mill Health & Load（磨机健康与负载）
-- **3 台磨机状态指示灯**: Running (绿●) / Stopped (灰●)，基于 Load Amps > 50A
-- **Load Amps Gauge ×3**: 每台磨机一个仪表盘，颜色来自阈值（可通过 Settings 调整）
-- **Amps 趋势叠加图**: 3 台磨机的 Load Amps 在同一张图上，不同颜色区分
-- **Feeder % 对比**: 3 台磨机的 Feeder % 柱状/趋势对比
-- **Roller Temperature 左右差值监控**: 关注左右压辊温差异常
-- **kWh/t 能耗对比柱状图**: 3 台磨机的单吨能耗对比
+- **3 台磨机状态指示灯**: Running (绿) / Stopped (灰)，基于 Load Amps > 50A
+- **Load Amps Gauge ×3**: 每台磨机一个半圆仪表盘，颜色来自阈值
+- **Amps 趋势叠加图**: 3 台磨机的 Load Amps 折线图，不同颜色区分
+- **Feeder % 趋势图**: 3 台磨机的进料速度趋势
+- **Roller Temperature 左右差值**: 3 台磨机的 |左-右| 温差趋势
+- **Mill Energy 趋势**: 3 台磨机的累计 kWh 折线图（替换旧的 kWh/t，BG 提供累计值非比率）
 
-#### Panel 3: Dryer & Feed（烘干与供料）
-- **Dry Silo 1/2 Tank Level 可视化**: Col 9/10，单位=百分比 %，用"水箱填充"图形
-- **出口水分趋势 (双线)**: Col 5 Displayed vs Col 6 Actual 同图对比
+#### Panel 3: Pellet Silo（颗粒料仓）— 新增
+- **Silo Level 时间趋势**: Silo 1/2/3 百分比折线图 + 背景阈值色带 (红/黄/绿/黄/红)
+- **Infeed Totaliser 趋势**: 各仓累计进料吨数折线图 (×3)
 
-#### Panel 4: Quality Control（质量控制）
-- **4 个指标卡片** (带颜色状态):
-  - Durability % (含 97.5% 参考线)
-  - Pellet Moisture % (含 10% 参考线)
-  - Bulk Density g/l
-  - Average Pellet Length mm
-- **Quality 趋势图**: 以上 4 指标的时间序列
+#### Panel 4: Dispatch（出货）— 新增
+- **累计趋势图**: Bagging + Truck Totaliser 折线图，2 条线
 
-#### Panel 5: CHP & Energy（热电联产与能效）
-- **Turbine Power Gauge**: Col 60，仪表盘，颜色来自阈值
-- **Furnace Temp 趋势**: Col 57
-- **Thermal Oil OUT 趋势**: Col 59
-- **HRU Bypass Damper 状态**: Col 63
-
-#### Panel 6: Downtime & Events（停机与事件）
-- **最近事件表格**: Events_Log 最近 10 条，含日期/时间/区域/描述/时长
-- **Pareto 图**: 按 Fault Category 降序排列，显示 80/20 分界线
-- **停机时间按 Area 柱状图**: 汇总各区域停机分钟数
+**~~Panel 3-6 已移除~~**: Dryer/Quality/CHP/Downtime（BG 未覆盖，待 BG 增加数据点后恢复）
 
 **底部全数据表**:
-- Shift_Protocol 全部 52 列（去除空白和损坏列后），可滚动、可排序、可筛选
-- 列名保持 CSV 英文原名（不翻译）
+- live_data 表所有有数据的列，可滚动、可排序、可筛选
+- 列名保持英文原名
 
 ### 1.4 Page 3 — AI Analytics Placeholder (`/ai`)
 
@@ -116,19 +100,16 @@
 
 ---
 
-## 2. Out of Scope ❌
+## 2. Out of Scope
 
-**以下功能明确不做，Claude Code 不应自行添加：**
+**以下功能明确不做：**
 
-- 生产环境部署 / 云端托管
-- 真实 SCADA / PLC 数据接入
+- **OEE 综合指标计算**（不做 Availability x Performance x Quality）
 - 真实 AI/ML 模型训练与推理（Page 3 / AI 仅占位）
-- **OEE 综合指标计算**（不做 Availability × Performance × Quality）
 - 用户认证 / 多角色权限
 - 移动端响应式适配（Desktop 优先即可）
-- Meter_Readings.csv 的深度能源分析（仅作为 CHP 面板的补充参考）
 - 额外的数据导出功能（Excel/PDF 报表生成）
-- 实时数据推送 / WebSocket
+- **Dryer/Quality/CHP/Events 面板** — BG 未覆盖，待 BG 增加数据点后恢复（在 `column_map.py` 加一行映射即可）
 
 ---
 
@@ -149,8 +130,8 @@
 | 阈值调整 | < 1 秒全图表颜色刷新 |
 
 ### 不能改的东西
-- CSV 原始列名（代码中做映射即可）
-- 数据时间范围 2026-01-01 ~ 2026-02-01
+- BG CSV 原始列名 / value_id（映射在 `src/column_map.py`）
+- 数据时间范围由数据库实际数据决定（不再硬编码）
 
 ---
 
@@ -170,14 +151,11 @@
 ### 图表类型选择指南
 | 场景 | 推荐图表 | 示例 |
 |------|----------|------|
-| 有明确上下限的瞬时值 | **Gauge/仪表盘** | Load Amps, Turbine Power |
-| 液位/库存百分比 | **Tank Level（水箱填充图）** | Dry Silo 1/2 |
-| 库存吨数 | **柱状图** | Pellet Silo 1/2/3 |
-| 时间序列趋势 | **Line Chart** | 产量 t/h, 温度, 水分 |
-| 停机原因排序 | **Pareto 图** | Fault Category（含 80/20 线） |
-| 运行/停机时间线 | **Gantt / 颜色条** | Running(绿) / Down(红) / Idle(黄) |
-| 单值+状态色 | **KPI 卡片** | OEE, 产量, 事件数 |
-| 上下游对比 | **双线同图** | Dryer Feed (Col 8) vs Belt Weigher (Col 51) |
+| 有明确上下限的瞬时值 | **Gauge/仪表盘** | Load Amps (Mill 1/2/3) |
+| 液位/库存百分比 | **Tank Level（水箱填充图）** | Pellet Silo 1/2/3 (%) |
+| 时间序列趋势 | **Line Chart** | 产量 t/h, Roller Temp, Amps, Energy |
+| 单值+状态色 | **KPI 卡片** | Daily Output, Rate, Mills Status |
+| 多线对比 | **多色折线同图** | 3 台 Mill Amps 叠加 |
 
 ### 颜色纪律
 - 🟢🟡🔴 全局统一语义 — **永远不能让红色代表"好"**

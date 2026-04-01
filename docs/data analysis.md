@@ -1,3 +1,9 @@
+> **LEGACY 文档** — 此文件分析的是旧 Shift Protocol CSV (64 列, 745 行 Demo 数据)。
+> Phase 8 起，数据源切换为 BG 实时 CSV，分析详见 `BaumgartnerData_analysis/`。
+> 此文件仅作历史参考。
+
+---
+
 站在building这个dashboard的enginee角度，我需要你你全面帮我理解这套样本数据，请你重点分析Shift_Protocol_date_time_merged.csv 这个csv里面的数据，这是构建dashboard的核心，其他的包括图片，音频或者其他csv等资料可以作为理解Shift_Protocol_date_time_merged.csv 文件的背景或者context,可以不用过度解读，我现在的要求是这个数据有好几个类别，比如大类 dryer, Pellet Mill 1 2 3 , Quality , Throught, CHP 下面有对应的小类参数，还有些小类参数没有包含在以上大类的范围 我要求你全部列出来 对应的列的参数名 然后请你给我讲解，并指出作为构建dashboard 哪些小类的参数最为重要，你先讲解Dryer， Pellet Mill大类下的所有小类和没有被大类包含的Valve position open at %	Pellet Mill Moistures %	Press Hopper Temperature 这3个小类 后面的先不用回答，我让你回答你再回答 谢谢
 
 你好！我是你的工程助手。

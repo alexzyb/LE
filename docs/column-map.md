@@ -1,5 +1,9 @@
 # Column Map — Shift_Protocol_date_time_merged.csv
 
+> **LEGACY 文档** — 此文件描述的是旧 Shift Protocol 64 列映射。
+> Phase 8 起，列映射已迁移到 `src/column_map.py`（BG 实时数据 25 列）。
+> 此文件仅作历史参考，不再更新。
+
 > 64 列完整映射。构建任何图表/查询前请核对此文档。
 
 ## ⏱ 全局时间戳 — Col 0

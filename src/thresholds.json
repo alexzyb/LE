@@ -1,9 +1,9 @@
 {
   "press_load_amps": {
     "red_low": 50.0,
-    "green_min": 200.0,
-    "green_max": 490.0,
-    "red_high": 491.0
+    "green_min": 400.0,
+    "green_max": 460.0,
+    "red_high": 480.0
   },
   "pellet_mill_moisture": {
     "red_low": 9.0,
@@ -24,7 +24,7 @@
   "dry_silo_level": {
     "red_low": 20.0,
     "green_min": 30.0,
-    "green_max": 80.0,
+    "green_max": 50.0,
     "red_high": 90.0
   },
   "dryer_out_feed": {
@@ -32,16 +32,16 @@
     "green_above": 11.0
   },
   "durability": {
-    "red_below": 50.0,
-    "green_above": 100.0
+    "red_below": 97.0,
+    "green_above": 97.5
   },
   "pellet_moisture_finished": {
     "green_below": 10.0,
     "red_above": 11.0
   },
   "avg_pellet_length": {
-    "green_below": 10.0,
-    "red_above": 21.0
+    "green_below": 40.0,
+    "red_above": 45.0
   },
   "bulk_density": {
     "red_below": 600.0,

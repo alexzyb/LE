@@ -1,128 +1,123 @@
 # Layout Specification & Acceptance Criteria
 
+> **Phase 8 更新 (2026-04)**: 数据源切换为 BG 实时 CSV (17 列)。
+> Energy/Dryer/Quality/Events 面板已移除（BG 未覆盖）。
+
 ## Page 1 — KPI Overview (`/`)
 
-> 首页：大字体 KPI 卡片 + Quality 网格，一眼总览工厂状态。
+> 首页：大字体 KPI 卡片 + 液位罐，一眼总览工厂状态。
 > 导航按钮: **Overview** · Detail · AI
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
 │ [Logo] Land Energy — Dashboard                                    │
-│        Date: [01-01] → [02-01] [Apply]   🌐[EN|中|FR] ⚙️          │
+│        Date: [auto]     🌐[EN|中|FR] ⚙️                            │
+│        [1m][30m][1h][6h][24h]  Auto-refresh:[Off|5s|30s|1m]      │
 │        [Overview] · [Detail] · [AI]                               │
 ├──────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  ── PRODUCTION ─────────────────────────────────────────────────  │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐        │
 │  │Daily Out │  │  Rate    │  │  Mills   │  │Cumulative│        │
-│  │  324 t   │  │ 13.8t/h🟡│  │  3/3  🟢 │  │ 807,680t │        │
+│  │  324 t   │  │ 13.8t/h🟡│  │  3/3  🟢 │  │ 2,450 t  │        │
 │  └──────────┘  └──────────┘  └──────────┘  └──────────┘        │
 │                                                                  │
-│  ── ENERGY ─────────────────────────────────────────────────────  │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐        │
-│  │ Turbine  │  │ Furnace  │  │Thermal   │  │HRU Bypass│        │
-│  │ 1950 kW  │  │  940 °C  │  │Oil 285°C │  │  42 %    │        │
-│  └──────────┘  └──────────┘  └──────────┘  └──────────┘        │
+│  ── MILL STATUS ────────────────────────────────────────────────  │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐                       │
+│  │ Mill 1   │  │ Mill 2   │  │ Mill 3   │                       │
+│  │  285 A 🟢│  │  291 A 🟢│  │  278 A 🟡│                       │
+│  └──────────┘  └──────────┘  └──────────┘                       │
 │                                                                  │
-│  ── DRYER ──────────────────────────────────────────────────────  │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐        │
-│  │Dryer Feed│  │Outlet    │  │Dry Silo 1│  │Dry Silo 2│        │
-│  │ 12.8t/h🟢│  │Moist 8.2%│  │  67 %    │  │  38 %    │        │
-│  └──────────┘  └──────────┘  └──────────┘  └──────────┘        │
+│  ── PELLET SILO ────────────────────────────────────────────────  │
+│  ┌───────┐     ┌───────┐     ┌───────┐                          │
+│  │▓▓▓▓▓▓│     │▓▓▓▓  │     │▓▓    │                            │
+│  │▓▓▓▓▓▓│     │▓▓▓▓  │     │      │                            │
+│  │ 78 %  │     │ 52 %  │     │ 23 % │                            │
+│  │Silo 1 │     │Silo 2 │     │Silo 3│                            │
+│  └───────┘     └───────┘     └───────┘                           │
 │                                                                  │
-│  ── PELLET QUALITY ─────────────────────────────────────────────  │
-│  ┌────────────────┬────────────────┬────────────────┐            │
-│  │  Durability    │  Bulk Density  │ Pellet Moisture│            │
-│  │    98.5 %    🟢│    641 g/l   🟢│     7.5 %    🟢│            │
-│  ├────────────────┼────────────────┼────────────────┤            │
-│  │  Pellet Temp   │  Avg Length    │                │            │
-│  │    28 °C     🟢│    22 mm     🟢│                │            │
-│  └────────────────┴────────────────┴────────────────┘            │
+│  ── DISPATCH ───────────────────────────────────────────────────  │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐                       │
+│  │ Bagging  │  │ Truck    │  │  Total   │                       │
+│  │ Today    │  │ Today    │  │ Dispatch │                       │
+│  │  45 t    │  │  80 t    │  │  125 t   │                       │
+│  └──────────┘  └──────────┘  └──────────┘                       │
 │                                                                  │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
 ### P1 KPI 卡片定义
 
-**Production (4 张)**:
+**Production (4 张 `_ov_card`)**:
 | 卡片 | 数据来源 | 单位 | 颜色 |
 |------|----------|------|------|
-| Daily Output | Col 45 累计差值（当日） | t | 无颜色 |
-| Hourly Rate | Col 51 `Total tons passed belt weigher (hour)` | t/h | Belt Weigher 阈值 |
+| Daily Output | Totaliser 累计差值（当日） | t | 无颜色 |
+| Hourly Rate | `Total tons passed belt weigher (hour)` 最新值 | t/h | `belt_weigher_hourly` 阈值 |
 | Mills Running | 3 台 Amps > 50A 计数 | x/3 | 3=🟢 1-2=🟡 0=🔴 |
-| Period Total | Col 45 累计差值（选定日期范围） | t | 无颜色 |
+| Period Total | Totaliser 累计差值（选定时间范围） | t | 无颜色 |
 
-**Energy (4 张)**:
+**Mill Status (3 张 `_ov_card`)**:
 | 卡片 | 数据来源 | 单位 | 颜色 |
 |------|----------|------|------|
-| Turbine Power | Col 48 `Turbine Generated Power kW` | kW | Turbine 阈值 |
-| Furnace Temp | Col 45 `Furnace Temp` | °C | Furnace 阈值 |
-| Thermal Oil OUT | Col 47 `Thermal Oil OUT` | °C | 无颜色 |
-| HRU Bypass | Col 51 `HRU Bypass Damper` | % | 无颜色 |
+| Mill 1 Amps | `Press 1 - Load Amps` 最新值 | A | `press_load_amps` 阈值 |
+| Mill 2 Amps | `Press 2 - Load Amps` 最新值 | A | `press_load_amps` 阈值 |
+| Mill 3 Amps | `Press 3 - Load Amps` 最新值 | A | `press_load_amps` 阈值 |
 
-**Dryer (4 张)**:
+**Pellet Silo (3 个 `_ov_tank` 液位罐)**:
 | 卡片 | 数据来源 | 单位 | 颜色 |
 |------|----------|------|------|
-| Dryer Feed | Col 7 `Dryer out feed t/h` | t/h | Dryer Feed 阈值 |
-| Outlet Moisture | Col 5 `Moisture % Actual Value at Dryer Outlet` | % | Dryer Moisture 阈值 |
-| Dry Silo 1 | Col 8 `Dry Silo 1 Level %` | % | 无颜色 |
-| Dry Silo 2 | Col 9 `Dry Silo 2 Level %` | % | 无颜色 |
+| Pellet Silo 1 | `Pellet Silo Level 1 Readout` → `tons_to_pct()` | % | `pellet_silo_level` 阈值 |
+| Pellet Silo 2 | `Pellet Silo Level 2 Readout` → `tons_to_pct()` | % | `pellet_silo_level` 阈值 |
+| Pellet Silo 3 | `Pellet Silo Level 3 Readout` → `tons_to_pct()` | % | `pellet_silo_level` 阈值 |
 
-**Quality 网格 (2×3, 5 个指标 + 1 空格)**:
-| 指标 | 数据来源 | 单位 | 颜色 |
+**Dispatch (3 张 `_ov_card`)**:
+| 卡片 | 数据来源 | 单位 | 颜色 |
 |------|----------|------|------|
-| Durability | Col 34 `Durability %` | % | Durability 阈值 |
-| Bulk Density | Col 33 `Bulk Density g/l` | g/l | Bulk Density 阈值 |
-| Pellet Moisture | Col 32 `Pellet Moisture %` | % | Pellet Moisture 阈值 |
-| Pellet Temp | Col 35 `Temp of Pellets at cooler` | °C | 无颜色 |
-| Avg Length | Col 36 `Average Pellet Length(mm)` | mm | Avg Length 阈值 |
-
-> 注: Pellet Fines % 在 CSV 中不存在，已去掉。
+| Bagging Today | `_bagging_totaliser` 当日差值 | t | 无颜色 |
+| Truck Today | `_truck_totaliser` 当日差值 | t | 无颜色 |
+| Total Dispatch | Bagging + Truck 合计 | t | 无颜色 |
 
 ---
 
 ## Page 2 — Detailed Operations (`/ops`)
 
-> 详细运营监控页：KPI 卡片行 + 6 面板 + 全数据表。
+> 详细运营监控页：KPI 卡片行 + 4 面板 + 全数据表。
 > 导航按钮: Overview · **Detail** · AI
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
 │ [Logo] Land Energy — Dashboard                                    │
-│        Date: [01-01] → [02-01] [Apply]      🌐[EN|中|FR] ⚙️       │
+│        Date: [auto]     🌐[EN|中|FR] ⚙️                            │
+│        [1m][30m][1h][6h][24h]  Auto-refresh:[Off|5s|30s|1m]      │
 ├──────────────────────────────────────────────────────────────────┤
-│ OEE    │ Daily    │ Rate    │ Mills   │ Dryer   │ Events        │
-│ — %    │ Out (t)  │ (t/h)   │ Status  │ Feed    │ (24h)         │
-│ ░ N/A  │ 324.5    │ 13.7 🟡  │ 2/3 🟢  │ 12.3 🟢  │ 5 ⚠️          │
+│ OEE    │ Daily    │ Rate    │ Mills                              │
+│ — %    │ Out (t)  │ (t/h)   │ Status                             │
+│ ░ N/A  │ 324.5    │ 13.7 🟡  │ 3/3 🟢                             │
 ├──────────────────────────────────────────────────────────────────┤
-│ [Tab: Production] [Mill Health] [Dryer] [Quality] [CHP] [Down]  │
+│ [Tab: Production] [Mill Health] [Pellet Silo] [Dispatch]         │
 ├──────────────────────────────────────────────────────────────────┤
 │ ┌─ Production & Throughput ──────────────────────────────────┐   │
-│ │ [Line: Belt Weigher t/h (Col 51) + 20 t/h target]         │   │
-│ │ [Line: Dryer Out Feed t/h (Col 8)]                         │   │
-│ │ [Big Number: Shift/Daily Total]                            │   │
-│ │ [Bar: Pellet Silo 1/2/3 (tonnes)]                         │   │
+│ │ [Line: Belt Weigher t/h + 20 t/h target]  │ Period Output │   │
+│ │                                             │   2,450 t    │   │
+│ │                                             │──────────────│   │
+│ │                                             │ [Tank×3:     │   │
+│ │                                             │  Silo % ]    │   │
 │ └────────────────────────────────────────────────────────────┘   │
 │ ┌─ Mill Health & Load ───────────────────────────────────────┐   │
-│ │ [●]M1:Running [●]M2:Running [●]M3:Stopped                 │   │
-│ │ [Gauge×3: Amps] [Line: Amps trend] [Bar: kWh/t]           │   │
+│ │ [●]M1:Running [●]M2:Running [●]M3:Running                 │   │
+│ │ [Gauge×3: Amps]                                            │   │
+│ │ [Line: Amps trend]        │ [Line: Feeder % trend]         │   │
+│ │ [Line: Roller Temp Diff]  │ [Line: Mill Energy kWh]        │   │
 │ └────────────────────────────────────────────────────────────┘   │
-│ ┌─ Dryer & Feed ─────────────────────────────────────────────┐   │
-│ │ [Tank: Silo1 67%] [Tank: Silo2 38%]                       │   │
-│ │ [Line: Outlet Moisture Actual vs Displayed]                │   │
+│ ┌─ Pellet Silo ──────────────────────────────────────────────┐   │
+│ │ [Line: Silo 1/2/3 % trend + threshold bands]              │   │
+│ │ [Line: Infeed Totaliser trend ×3]                          │   │
 │ └────────────────────────────────────────────────────────────┘   │
-│ ┌─ Quality Control ──────────────────────────────────────────┐   │
-│ │ [Cards: Durability/Moisture/Density/Length]                 │   │
-│ │ [Line: Quality trends]                                     │   │
-│ └────────────────────────────────────────────────────────────┘   │
-│ ┌─ CHP & Energy ─────────────────────────────────────────────┐   │
-│ │ [Gauge: Turbine kW] [Line: Furnace Temp + Thermal Oil]     │   │
-│ └────────────────────────────────────────────────────────────┘   │
-│ ┌─ Downtime & Events ────────────────────────────────────────┐   │
-│ │ [Table: Recent 10] [Pareto: Fault Cat] [Bar: Area]         │   │
+│ ┌─ Dispatch ─────────────────────────────────────────────────┐   │
+│ │ [Line: Bagging + Truck Totaliser trend]                    │   │
 │ └────────────────────────────────────────────────────────────┘   │
 ├──────────────────────────────────────────────────────────────────┤
-│ Full Data Table (52 cols, scrollable, sortable)                  │
+│ Full Data Table (live_data columns, scrollable, sortable)        │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -131,17 +126,30 @@
 | 卡片 | 数据来源 | 颜色逻辑 |
 |------|----------|----------|
 | OEE | 无 | 固定灰色，显示 "— %" |
-| Daily Output | Col 45 (当日最新值 - 当日起始值) | 无颜色 |
-| Rate (t/h) | Col 51 最新记录 | 按 Belt Weigher 阈值着色 |
-| Mills Status | 3 台磨机 Amps >50 判定 | 全部运行=🟢, 部分=🟡, 全停=🔴 |
-| Dryer Feed | Col 8 最新值 | 按 Dryer Out Feed 阈值着色 |
-| Events (24h) | Events_Log 过去 24h 计数 | >10=🔴, 5-10=🟡, <5=🟢 |
+| Daily Output | Totaliser 当日差值 | 无颜色 |
+| Rate (t/h) | `Total tons passed belt weigher (hour)` 最新值 | `belt_weigher_hourly` 阈值 |
+| Mills Status | 3 台 Amps > 50A | 全部=🟢, 部分=🟡, 全停=🔴 |
+
+### P2 图表清单
+
+| 面板 | 图表 | 类型 | 数据列 |
+|------|------|------|--------|
+| Production | `fig_production_lines` | 折线图 | Belt Weigher t/h |
+| Production | `fig_pellet_silos` | 液位罐 (tank overlay) | Silo 1/2/3 → % |
+| Mill | `fig_mill_gauges` | 半圆仪表盘 ×3 | Mill 1/2/3 Amps |
+| Mill | `fig_mill_amps_trend` | 折线图 (×3 线) | Mill 1/2/3 Amps |
+| Mill | `fig_mill_feeder` | 折线图 (×3 线) | Mill 1/2/3 Feeder % |
+| Mill | `fig_roller_temp_diff` | 折线图 (×3 线) | Mill 1/2/3 |Left-Right| Temp |
+| Mill | `fig_mill_energy` | 折线图 (×3 线) | Mill 1/2/3 累计 kWh |
+| Pellet Silo | `fig_silo_level_trend` | 折线图 + 阈值色带 | Silo 1/2/3 % |
+| Pellet Silo | `fig_silo_infeed_trend` | 折线图 (×3 线) | Silo 1/2/3 Infeed |
+| Dispatch | `fig_dispatch_trend` | 折线图 (2 线) | Bagging + Truck |
 
 ---
 
 ## Page 3 — AI Analytics Placeholder (`/ai`)
 
-> AI 占位页：伪数据面板 + 灰色 overlay。
+> AI 占位页：伪数据面板 + 灰色 overlay。不变。
 > 导航按钮: Overview · Detail · **AI**
 
 ```
@@ -156,20 +164,21 @@
 │ [Fake timeline]       │ [Fake Sankey]                            │
 │ ░░ PLACEHOLDER ░░     │ ░░ PLACEHOLDER ░░                        │
 ├──────────────────────────────────────────────────────────────────┤
-│ ⚠️ Requires more historical data. Expected: Q3 2026              │
+│ Requires more historical data. Expected: Q3 2026                 │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## 设计原则
+
 1. 深色主题 SCADA 风格 (Grafana/MachineMetrics)
-2. 关键数字 2 米外可读（KPI 值 ≥ 48px, 总览页 52px）
-3. 🟢🟡🔴 全局统一语义
-4. Gauge 用于有明确上下限的参数
-5. Tank Level 用于 Silo 液位
-6. Pareto 用于停机分析
-7. 上游/下游产量双线对比
+2. 关键数字 2 米外可读（KPI 值 >= 48px, 总览页 52px）
+3. 红黄绿全局统一语义
+4. Gauge 用于有明确上下限的参数 (Mill Amps)
+5. Tank Level 用于 Silo 液位 (Pellet Silo 百分比)
+6. 折线图用于时间序列趋势 (所有趋势图表)
+7. 多线叠加用于同类对比 (3 台 Mill 在同一图上)
 
 ---
 
@@ -177,8 +186,8 @@
 
 | 页面 | 路径 | 导航按钮 | 内容 |
 |------|------|---------|------|
-| P1 KPI 总览 | `/` | Overview | 12 KPI 卡片 + Quality 2×3 网格 |
-| P2 详细运营 | `/ops` | Detail | KPI 行 + 6 面板 + 全数据表 |
+| P1 KPI 总览 | `/` | Overview | 13 KPI (4 card + 3 card + 3 tank + 3 card) |
+| P2 详细运营 | `/ops` | Detail | KPI 行 + 4 面板 + 10 图表 + 全数据表 |
 | P3 AI 占位 | `/ai` | AI | 4 伪面板 + overlay + Coming Soon |
 
 ---
@@ -197,39 +206,41 @@
 - [ ] P3 AI 占位 (`/ai`) 可访问
 
 ### P1 KPI 总览
-- [ ] Production 组: 4 张大字 KPI 卡片
-- [ ] Energy 组: 4 张大字 KPI 卡片
-- [ ] Dryer 组: 4 张大字 KPI 卡片
-- [ ] Quality 网格: 2×3 布局，5 个指标有数据（无 Fines）
-- [ ] KPI 值字体 ≥ 52px，醒目可读
-- [ ] 阈值颜色正确 (Rate/Mills/Turbine/Furnace/Dryer/Moisture/Quality)
-- [ ] DateRange 联动刷新所有卡片
+- [ ] Production 组: 4 张大字 KPI 卡片 (Daily Output, Rate, Mills, Cumulative)
+- [ ] Mill Status 组: 3 张 KPI 卡片 (Mill 1/2/3 Amps)
+- [ ] Pellet Silo 组: 3 个百分比液位罐 (tank visual, 非吨数条形图)
+- [ ] Dispatch 组: 3 张 KPI 卡片 (Bagging, Truck, Total)
+- [ ] KPI 值字体 >= 52px，醒目可读
+- [ ] 阈值颜色正确 (Rate/Mills/Amps/Silo Level)
+- [ ] 时间范围联动刷新所有卡片
+- [ ] 无 Energy/Dryer/Quality section（已移除）
 
 ### P2 详细运营 (数据)
 - [ ] OEE 灰色占位，不计算
-- [ ] KPI 卡片数值匹配 CSV（可抽查）
+- [ ] KPI 卡片数值匹配数据库（可抽查）
+- [ ] 面板导航只有 4 个按钮: Production / Mill Health / Pellet Silo / Dispatch
 - [ ] 磨机状态灯正确 (Amps>50=Running)
-- [ ] Dry Silo = Tank Level (%)
-- [ ] Pellet Silo = 柱状图 (吨)
-- [ ] 所有 🔴 参数有颜色指示
-- [ ] 底部 52 列全数据表
-- [ ] Events_Log 正确显示
+- [ ] Pellet Silo = 液位罐 (百分比，非吨数)
+- [ ] Mill Energy 趋势 = 累计 kWh (非 kWh/t)
+- [ ] Silo Level 趋势有阈值色带
+- [ ] 底部数据表显示 live_data 所有列
+- [ ] 无 Dryer/Quality/CHP/Downtime 面板（已移除）
 
-### P2 Production 精确性
-- [ ] Col 51 (Belt Weigher) 趋势图标题明确
-- [ ] Col 8 (Dryer Feed) 趋势图标题明确
-- [ ] 两条线不混淆
+### P2 图表精确性
+- [ ] Production 趋势只有 Belt Weigher 一条线（无 Dryer Out Feed）
+- [ ] Mill 图表 3 台 Mill 颜色区分清晰
+- [ ] Dispatch 趋势 Bagging + Truck 两条线
 
 ### 阈值面板
-- [ ] ⚙️ 可打开设置面板
-- [ ] 16 个参数可调
+- [ ] 可打开设置面板
+- [ ] 4 个有效阈值可调: press_load_amps, belt_weigher_hourly, feeder_pct, pellet_silo_level
 - [ ] 调整即时生效
 - [ ] Reset 恢复默认
 - [ ] 持久化到 thresholds.json
 
 ### 三语
 - [ ] EN/中/FR 切换正常
-- [ ] 所有标题/按钮/Tooltip 已翻译
+- [ ] 所有标题/按钮已翻译（含新增 Mill Status/Pellet Silo/Dispatch）
 - [ ] 无错位截断
 - [ ] 默认 English
 

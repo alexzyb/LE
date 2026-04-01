@@ -37,6 +37,13 @@ The team decided against installing new sensors or "hacking" the PLCs, which wou
 1. The "Ask": Land Energy will send a formal letter to Baumgartner.
 2. The Requirement: Request a scheduled "Data Dump" (likely a CSV text file generated every hour) containing key tags: Status (On/Off), Fault Codes, Amps, and Tonnage.
 3. Storage: This data will be moved from the local server to a cloud environment (or local Land Energy server) for the dashboard to read.
+4.2.1 BG Data Export Status (Updated 2026-03)
+
+> **更新 (2026-03):** BG 数据导出已实现。BG CDC 程序每 ~10 秒扫描 WinCC 并追加到 CSV 文件。
+> 目前覆盖 17 列 (Mill 1/2/3 + Production + Pellet Silo)。
+> Dryer/Quality/CHP/Events 数据暂未包含，待 BG 后续增加。
+> 详见 `docs/phase8-live-data.md`。
+
 4.3 Future Vision (AI & Predictive Maintenance)
 The audio frequently mentions that this dashboard is just "Step 1."
 • Step 2: The long-term goal is Predictive Maintenance.
