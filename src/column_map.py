@@ -180,7 +180,7 @@ LIVE_COLUMN_MAP = [
         "unit": "t/h",
         "group": "Throughput",
         "freq_sec": 30,
-        "clean": {"type": "non_negative"},
+        "clean": {"type": "range", "min": 0, "max": 50},
     },
     {
         "bg_file": "Complete_Plant",
@@ -201,7 +201,7 @@ LIVE_COLUMN_MAP = [
         "unit": "t",
         "group": "Throughput",
         "freq_sec": 3600,
-        "clean": {"type": "range", "min": 0, "max": 5000},
+        "clean": {"type": "range", "min": 0, "max": 520},  # 450t capacity + 15% tolerance
     },
     {
         "bg_file": "Pellet_Silo_2",
@@ -211,7 +211,7 @@ LIVE_COLUMN_MAP = [
         "unit": "t",
         "group": "Throughput",
         "freq_sec": 3600,
-        "clean": {"type": "range", "min": 0, "max": 5000},
+        "clean": {"type": "range", "min": 0, "max": 4000},  # 3500t capacity + 15% tolerance
     },
     {
         "bg_file": "Pellet_Silo_3",
@@ -221,7 +221,7 @@ LIVE_COLUMN_MAP = [
         "unit": "t",
         "group": "Throughput",
         "freq_sec": 3600,
-        "clean": {"type": "range", "min": 0, "max": 5000},
+        "clean": {"type": "range", "min": 0, "max": 4000},  # 3500t capacity + 15% tolerance
     },
     {
         "bg_file": "Pellet_Silo_1",
@@ -298,25 +298,34 @@ BG_FILES = list(BY_BG_FILE.keys())
 
 # ---------------------------------------------------------------------------
 # Pellet Silo capacity (tonnes) — for percentage calculation
-# Set to 3500 t for all silos (pending factory confirmation).
-# Adjust per factory confirmation once exact capacity is known.
+# Factory confirmed: Silo 1 = 450 t, Silo 2 & 3 = 3500 t.
 # ---------------------------------------------------------------------------
 SILO_MAX_CAPACITY = {
-    "Pellet Silo Level 1 Readout": 3500,
+    "Pellet Silo Level 1 Readout": 450,
     "Pellet Silo Level 2 Readout": 3500,
     "Pellet Silo Level 3 Readout": 3500,
 }
 
 
 def tons_to_pct(value, col):
-    """Convert Fuel_Level tonnes to percentage (0-100) using SILO_MAX_CAPACITY."""
+    """Convert Fuel_Level tonnes to percentage using SILO_MAX_CAPACITY.
+
+    Returns actual percentage (can exceed 100% for over-capacity readings).
+    Negative values are clamped to 0%.
+    """
     if value is None:
+        return None
+    try:
+        v = float(value)
+    except (ValueError, TypeError):
+        return None
+    if v != v:  # NaN
         return None
     cap = SILO_MAX_CAPACITY.get(col)
     if not cap:
         return None
-    pct = (float(value) / cap) * 100
-    return max(0.0, min(100.0, pct))
+    pct = (v / cap) * 100
+    return max(0.0, pct)
 
 
 # ---------------------------------------------------------------------------
@@ -330,6 +339,8 @@ def clean_value(value, rule):
     try:
         v = float(value)
     except (ValueError, TypeError):
+        return None
+    if v != v:  # NaN check (float('nan') != float('nan') is True)
         return None
 
     rule_type = rule.get("type")

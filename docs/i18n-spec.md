@@ -19,7 +19,7 @@
 | P1 卡片 | Daily Output | 日产量 | Production du jour |
 | P1 卡片 | Hourly Rate | 小时产率 | D\u00e9bit horaire |
 | P1 卡片 | Mills Running | 磨机运行 | Broyeurs actifs |
-| P1 卡片 | Period Total | 期间总量 | Total p\u00e9riode |
+| P1 卡片 | Totaliser | 累计计数器 | Totaliseur |
 | **P1 Mill Status 卡片** | | | |
 | P1 卡片 | Mill 1 Amps | 压机1电流 | Courant presse 1 |
 | P1 卡片 | Mill 2 Amps | 压机2电流 | Courant presse 2 |
@@ -29,9 +29,10 @@
 | P1 液位罐 | Pellet Silo 2 | 颗粒仓 2 | Silo 2 |
 | P1 液位罐 | Pellet Silo 3 | 颗粒仓 3 | Silo 3 |
 | **P1 Dispatch 卡片** | | | |
-| P1 卡片 | Bagging Today | 今日包装 | Ensachage aujourd'hui |
-| P1 卡片 | Truck Today | 今日装车 | Camion aujourd'hui |
-| P1 卡片 | Total Dispatch | 出货合计 | Total exp\u00e9di\u00e9 |
+| P1 卡片 | Daily Bagging | 包装日产 | Ensachage du jour |
+| P1 卡片 | Daily Truck | 装车日产 | Camion du jour |
+| P1 卡片 | Bagging Totaliser | 包装计数器 | Totaliseur ensachage |
+| P1 卡片 | Truck Totaliser | 装车计数器 | Totaliseur camion |
 | **P2 Detail 面板** | | | |
 | 面板 | Production & Throughput | 产量与生产率 | Production et d\u00e9bit |
 | 面板 | Mill Health & Load | 磨机健康与负载 | Sant\u00e9 et charge des broyeurs |
@@ -45,6 +46,8 @@
 | 状态 | Stopped | 停机 | Arr\u00eat\u00e9 |
 | 状态 | Insufficient Data | 数据不足 | Donn\u00e9es insuffisantes |
 | 状态 | No data | 无数据 | Pas de donn\u00e9es |
+| **主题** | | | |
+| 主题 | Toggle Theme | 切换主题 | Basculer le thème |
 | **按钮 / 设置** | | | |
 | 按钮 | Apply | 应用 | Appliquer |
 | 按钮 | Save & Apply | 保存并应用 | Enregistrer et appliquer |

@@ -6,21 +6,53 @@ thresholds.json (written by the Settings panel).
 """
 
 import json
+import os
 from copy import deepcopy
 from pathlib import Path as _Path
 
-# ─── Colour Palette (dark SCADA theme) ───────────────────────────────────────
-COLOR_SCHEME = {
-    "bg":      "#1a1a2e",   # page background
-    "card":    "#16213e",   # panel / card background
-    "accent":  "#0f3460",   # secondary accent (hover, borders)
-    "green":   "#0f9b58",
-    "yellow":  "#f4b400",
-    "red":     "#db4437",
-    "text":    "#e0e0e0",
-    "subtext": "#9e9e9e",
-    "border":  "#2a2a4a",
+# ─── Environment Variables ────────────────────────────────────────────────────
+DATABASE_URL   = os.environ.get("DATABASE_URL", "")        # e.g. postgresql://...
+BG_EXPORT_DIR  = os.environ.get("BG_EXPORT_DIR", "")       # live CSV directory on VM
+
+# ─── Colour Palette (dark / light SCADA themes) ─────────────────────────────
+COLOR_SCHEMES = {
+    "dark": {
+        "bg":      "#1a1a2e",
+        "card":    "#16213e",
+        "accent":  "#0f3460",
+        "green":   "#0f9b58",
+        "yellow":  "#f4b400",
+        "red":     "#e05545",   # improved contrast (4.0:1 vs old 3.2:1)
+        "text":    "#e0e0e0",
+        "subtext": "#b0b0b0",   # improved contrast (4.8:1 vs old 3.5:1)
+        "border":  "#2a2a4a",
+        "mill":    ["#4dd0e1", "#f06292", "#aed581"],
+        "overlay": "rgba(26,26,46,0.68)",
+        "green_alpha": "rgba(15,155,88,0.25)",
+        "gauge_red": "#3d1a1a", "gauge_yellow": "#3d3312", "gauge_green": "#0f3d27",
+    },
+    "light": {
+        "bg":      "#f0f2f5",
+        "card":    "#ffffff",
+        "accent":  "#e3e8ef",
+        "green":   "#0d8a4e",   # 4.6:1 on white
+        "yellow":  "#b8860b",   # 4.5:1 on white
+        "red":     "#c62828",   # 5.6:1 on white
+        "text":    "#1a1a2e",
+        "subtext": "#5a5a6e",   # 5.3:1 on #f0f2f5
+        "border":  "#d0d4da",
+        "mill":    ["#00838f", "#c2185b", "#558b2f"],
+        "overlay": "rgba(240,242,245,0.68)",
+        "green_alpha": "rgba(13,138,78,0.25)",
+        "gauge_red": "#fde0e0", "gauge_yellow": "#fdf3d0", "gauge_green": "#d0f0dd",
+    },
 }
+COLOR_SCHEME = COLOR_SCHEMES["dark"]   # backward compat
+
+
+def get_color_scheme(theme="dark"):
+    """Return colour palette for the given theme."""
+    return COLOR_SCHEMES.get(theme, COLOR_SCHEMES["dark"])
 
 # ─── Blank Separator & Damaged Columns (0-indexed in the raw CSV) ─────────────
 SKIP_COLS    = {1, 14, 18, 24, 30, 36, 38, 44, 55}   # empty separator cols
@@ -120,7 +152,7 @@ DEFAULT_THRESHOLDS = {
         "mode": "dual",
         "red_low": 50, "green_min": 400, "green_max": 460, "red_high": 480,
         "unit": "A",
-        "cols": [21, 27, 33],
+        "cols": ["Press 1 - Load Amps", "Press 2 - Load Amps", "Press 3 - Load Amps"],
     },
     "pellet_mill_moisture": {
         "label": "Pellet Mill Moisture",
@@ -211,7 +243,7 @@ DEFAULT_THRESHOLDS = {
         "mode": "lower",
         "red_below": 10.0, "green_above": 14.0,
         "unit": "t/h",
-        "cols": [51],
+        "cols": ["Total tons passed belt weigher (hour)"],
     },
     "valve_position": {
         "label": "Valve Position",
@@ -225,18 +257,30 @@ DEFAULT_THRESHOLDS = {
         "mode": "lower",
         "red_below": 40, "green_above": 55,
         "unit": "%",
-        "cols": [22, 28, 34],
+        "cols": ["Press 1 - Feeder %", "Press 2 - Feeder %", "Press 3 - Feeder %"],
+    },
+    # ── Pellet Silo Level % (Phase 8, split by capacity) ───────────────────────
+    "pellet_silo_level_1": {
+        "label": "Pellet Silo 1 (450t)",
+        "mode": "dual",
+        "red_low": 15, "green_min": 25, "green_max": 85, "red_high": 95,
+        "unit": "%",
+        "cols": ["Pellet Silo Level 1 Readout"],
+    },
+    "pellet_silo_level_23": {
+        "label": "Pellet Silo 2/3 (3500t)",
+        "mode": "dual",
+        "red_low": 10, "green_min": 20, "green_max": 80, "red_high": 90,
+        "unit": "%",
+        "cols": ["Pellet Silo Level 2 Readout", "Pellet Silo Level 3 Readout"],
     },
 }
 
-# ─── Settings Panel Grouping ──────────────────────────────────────────────────
+# ─── Settings Panel Grouping (Phase 8: 5 active BG-backed thresholds) ─────────
 THRESHOLD_GROUPS = {
-    "Mill":       ["press_load_amps", "pellet_mill_moisture", "feeder_pct"],
-    "Dryer":      ["dryer_outlet_moisture", "dry_silo_level", "dryer_out_feed"],
-    "Quality":    ["durability", "pellet_moisture_finished", "avg_pellet_length", "bulk_density"],
-    "CHP":        ["furnace_temp", "thermal_oil_out", "turbine_power"],
+    "Mill":       ["press_load_amps", "feeder_pct"],
     "Throughput": ["belt_weigher_hourly"],
-    "Other":      ["main_filter_kp", "valve_position"],
+    "Silo":       ["pellet_silo_level_1", "pellet_silo_level_23"],
 }
 
 # ─── Threshold Persistence ────────────────────────────────────────────────────

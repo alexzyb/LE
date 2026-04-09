@@ -16,12 +16,13 @@
 - **旧数据 (Phase 0-7, 已弃用)**: `data/Shift_Protocol_date_time_merged.csv`（64 列宽表，745 行 Demo 快照）
   - `init_db.py` 和 `data/` 目录保留但不再使用
 - **BG 当前覆盖**: 17/52 列（Mill + Production + Pellet Silo），Dryer/Quality/CHP 待 BG 后续增加
-- **P1 KPI 总览** (`/`): Production 4 卡片 + Mill Status 3 卡片 + Pellet Silo 3 液位罐 + Dispatch 3 卡片
-- **P2 详细运营** (`/ops`): KPI卡片行 → 4个分区面板 (Production/Mill/Pellet Silo/Dispatch) → 底部全数据表
+- **P1 KPI 总览** (`/`): Production 4 卡片 + Mill Status 3 卡片 + Pellet Silo 3 液位罐 + Dispatch 4 卡片 (差值+原始值各2)
+- **P2 详细运营** (`/ops`): 4个分区面板 (Production/Mill/Pellet Silo/Dispatch)。~~KPI卡片行~~ LEGACY（Phase 8 移除，代码保留注释）
 - **P3 AI Placeholder** (`/ai`): 4 个伪数据占位面板 + "Coming Soon"
 - **三语**: EN / 中文 / Français 顶栏切换器（见 `docs/i18n-spec.md`）
 - **阈值可调**: 4 个有效参数 (Amps/Belt Weigher/Feeder/Pellet Silo) 🟢🟡🔴 颜色边界，⚙️ Settings UI 调整（见 `docs/thresholds.md`）
 - **不计算 OEE**: OEE 卡片灰色占位
+- **Light/Dark 主题切换**: 顶栏 ☀️/🌙 按钮切换，CSS 变量驱动，偏好保存 localStorage
 - **深色 SCADA 风格**: Roboto Mono 数字字体，关键数字 2 米外可读
 - **Grafana 风格时间控制**: 快速范围按钮 + 自动刷新 (Off/5s/30s/1min)
 

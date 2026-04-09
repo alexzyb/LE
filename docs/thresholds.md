@@ -36,10 +36,10 @@
 
 ## 2. 有效阈值参数
 
-> **Phase 8 更新**: BG 只覆盖 17 列。原 16 个阈值中只有 3 个有对应 BG 数据，新增 1 个。
+> **Phase 8 更新**: BG 只覆盖 17 列。原 16 个阈值中只有 3 个有对应 BG 数据，新增 2 个（Silo 1 和 Silo 2/3 分开设置）。
 > Legacy 阈值保留在 `config.py` 中但不激活，待 BG 增加数据点后可恢复。
 
-### 有效阈值 (4 个，有 BG 数据)
+### 有效阈值 (5 个，有 BG 数据)
 
 #### #1 Press Load Amps [模式 A] — 单位: A
 适用: `Press [1/2/3] - Load Amps` | BG: Pellet_Mill_X.Actual_Current
@@ -53,6 +53,7 @@
 
 #### #2 Belt Weigher Hourly [模式 B — 越高越好] — 单位: t/h
 适用: `Total tons passed belt weigher (hour)` | BG: Complete_Plant.Production
+**清洗**: >50 t/h 视为异常错值→过滤为 NULL（正常范围 11-12 t/h，BG 偶现 30000+ 错值）
 ```
 │ 🔴 Red:          Below  [ 10.0 ]            │
 │ 🟡 Yellow:       From   [ 10.0 ]  To [ 14.0]│
@@ -67,14 +68,24 @@
 │ 🟢 Green:        Above  [ 55 ]              │
 ```
 
-#### #4 Pellet Silo Level [模式 A] — 单位: % (新增)
-适用: `Pellet Silo Level 1/2/3 Readout` → 百分比 | BG: Pellet_Silo_X.Fuel_Level
+#### #4 Pellet Silo 1 Level [模式 A] — 单位: % (450t 小仓)
+适用: `Pellet Silo Level 1 Readout` → 百分比 | BG: Pellet_Silo_1.Fuel_Level
 ```
-│ 🔴 Red Low:      Below  [ 20 ] (接近空仓)   │
-│ 🟡 Yellow Low:   From   [ 20 ]  To  [ 30 ] │
-│ 🟢 Green Range:  Min    [ 30 ]  Max [ 80 ] │
+│ 🔴 Red Low:      Below  [ 15 ]              │
+│ 🟡 Yellow Low:   From   [ 15 ]  To  [ 25 ] │
+│ 🟢 Green Range:  Min    [ 25 ]  Max [ 85 ] │
+│ 🟡 Yellow High:  From   [ 85 ]  To  [ 95 ] │
+│ 🔴 Red High:     Above  [ 95 ]              │
+```
+
+#### #5 Pellet Silo 2/3 Level [模式 A] — 单位: % (3500t 大仓)
+适用: `Pellet Silo Level 2/3 Readout` → 百分比 | BG: Pellet_Silo_2/3.Fuel_Level
+```
+│ 🔴 Red Low:      Below  [ 10 ]              │
+│ 🟡 Yellow Low:   From   [ 10 ]  To  [ 20 ] │
+│ 🟢 Green Range:  Min    [ 20 ]  Max [ 80 ] │
 │ 🟡 Yellow High:  From   [ 80 ]  To  [ 90 ] │
-│ 🔴 Red High:     Above  [ 90 ] (接近满仓)   │
+│ 🔴 Red High:     Above  [ 90 ]              │
 ```
 
 ### Legacy 阈值 (12 个，BG 未覆盖，暂不激活)
@@ -106,7 +117,7 @@
 顶栏右侧 ⚙️ → 弹出 Modal
 
 ### 面板结构
-- 4 个有效参数按分组: Mill (Amps, Feeder %) / Production (Belt Weigher) / Silo (Pellet Silo Level)
+- 5 个有效参数按分组: Mill (Amps, Feeder %) / Production (Belt Weigher) / Silo (Silo 1 Level, Silo 2/3 Level)
 - 模式 A 参数显示 4-5 个输入框
 - 模式 B/C 参数显示 2 个输入框
 - 每个参数有单独 [Reset to Default]

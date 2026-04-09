@@ -11,6 +11,7 @@
 - **本地 SQLite 数据库** (`land_energy.db`): BG 实时 CSV 由 `ingest.py` 增量写入 `live_data` 表，支持时间范围筛选查询
 - **三语支持 (i18n)**: EN / 中文 / Français，顶栏切换器，所有 UI 文本均翻译（详见 `docs/i18n-spec.md`）
 - **阈值设置面板**: 4 个有效参数的 🟢🟡🔴 颜色边界可通过 UI 实时调整（详见 `docs/thresholds.md`）
+- **Light/Dark 主题切换**: 顶栏 ☀️/🌙 按钮，CSS 变量驱动，偏好保存到 localStorage
 - **Logo**: 从 https://www.land-energy.com/ 获取，放置在 Dashboard 左上角
 
 ### 1.2 Page 1 — KPI 总览 (`/`)
@@ -22,10 +23,11 @@
 
 | 分类 | 卡片 1 | 卡片 2 | 卡片 3 | 卡片 4 |
 |------|--------|--------|--------|--------|
-| Production | Daily Output (t) | Hourly Rate (t/h) | Mills Running (x/3) | Period Total (t) |
+| Production | Daily Output (t) | Hourly Rate (t/h) | Mills Running (x/3) | Totaliser (t) |
 | Mill Status | Mill 1 Amps (A) | Mill 2 Amps (A) | Mill 3 Amps (A) | — |
 | Pellet Silo | Silo 1 (% 液位罐) | Silo 2 (% 液位罐) | Silo 3 (% 液位罐) | — |
-| Dispatch | Bagging Today (t) | Truck Today (t) | Total Dispatch (t) | — |
+| Dispatch (行1) | Daily Bagging (t) | Daily Truck (t) | — | — |
+| Dispatch (行2) | Bagging Totaliser (t) | Truck Totaliser (t) | — | — |
 
 **Pellet Silo 显示**: 使用 `_ov_tank()` 液位罐组件（与 Dry Silo 相同风格），Fuel_Level 吨数 → 百分比换算。
 
@@ -44,9 +46,10 @@
 - Date Range Picker（默认自动适配数据库实际时间范围）
 - 🌐 语言切换器 (EN | 中 | FR)
 - ⚙️ 阈值设置按钮（打开 Modal/Sidebar）
-- Grafana 风格时间控制: 快速范围 (1m/30m/1h/6h/24h) + 自动刷新 (Off/5s/30s/1min)
+- Grafana 风格时间控制: 快速范围 (1m/30m/6h/24h/7d/1M/6M) + 自动刷新 (Off/5s/30s/1min)
 
-**KPI 卡片行** (4 张卡片):
+**KPI 卡片行** (4 张卡片) — **⚠️ LEGACY: 已在 Phase 8 中移除（BG 数据不覆盖 OEE）。代码中保留 `# LEGACY` 注释，不排除未来恢复。**
+
 | 卡片 | 数据来源 | 颜色 |
 |------|----------|------|
 | OEE % | **无计算** — 灰色占位，显示 "— %"，底注 "Insufficient Data" | 固定灰色 |
@@ -66,7 +69,7 @@
 - **Load Amps Gauge ×3**: 每台磨机一个半圆仪表盘，颜色来自阈值
 - **Amps 趋势叠加图**: 3 台磨机的 Load Amps 折线图，不同颜色区分
 - **Feeder % 趋势图**: 3 台磨机的进料速度趋势
-- **Roller Temperature 左右差值**: 3 台磨机的 |左-右| 温差趋势
+- **Roller Temperature L/R**: 左/右各一图 (各 3 线)，操作员可对比 L vs R 差异
 - **Mill Energy 趋势**: 3 台磨机的累计 kWh 折线图（替换旧的 kWh/t，BG 提供累计值非比率）
 
 #### Panel 3: Pellet Silo（颗粒料仓）— 新增
@@ -77,10 +80,6 @@
 - **累计趋势图**: Bagging + Truck Totaliser 折线图，2 条线
 
 **~~Panel 3-6 已移除~~**: Dryer/Quality/CHP/Downtime（BG 未覆盖，待 BG 增加数据点后恢复）
-
-**底部全数据表**:
-- live_data 表所有有数据的列，可滚动、可排序、可筛选
-- 列名保持英文原名
 
 ### 1.4 Page 3 — AI Analytics Placeholder (`/ai`)
 
@@ -125,7 +124,8 @@
 | 操作 | 要求 |
 |------|------|
 | 首次加载 | < 3 秒 |
-| 时间范围筛选 | < 1 秒刷新 |
+| 时间范围筛选 (1m/30m/6h/24h) | < 1 秒刷新（原始 30s 粒度） |
+| 时间范围筛选 (7d/1M/6M) | < 2 秒刷新（自动降采样，≤3,000 行） |
 | 语言切换 | < 0.5 秒（纯字符串替换，不重新查询数据） |
 | 阈值调整 | < 1 秒全图表颜色刷新 |
 

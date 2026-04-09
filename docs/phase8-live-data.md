@@ -89,12 +89,19 @@
                               │
 ┌─ Dashboard 显示层 ──────────▼───────────────────────────────────────┐
 │                                                                     │
-│  data.py: get_shift_df(start, end)                                  │
+│  data.py: get_live_df(start, end)                                   │
 │  → SELECT * FROM live_data WHERE "Date Time" BETWEEN ? AND ?        │
 │  → 返回 pandas DataFrame (宽表)                                     │
 │  → **在此处按 column_map.py 的规则过滤异常值**                       │
 │     例: Fuel_Level 负值→0, >5000→NULL                               │
 │     规则可随时修改，不需要重新导入数据                                │
+│  → **大范围自动降采样** (保证前端流畅):                               │
+│     ≤24h:   原始 30s 粒度 (最多 ~2,880 行)                          │
+│     ≤14d:   5 min 重采样 (~2,016 行)                                 │
+│     ≤60d:   30 min 重采样 (~1,440 行)                                │
+│     ≤1Y:    2h 重采样 (~4,380 行)                                    │
+│     >1Y:    6h 重采样 (≤~7,300 行)                                   │
+│     策略: 瞬时列取窗口均值, 累计列取末值; 每次返回 ≤~3,000 行       │
 │                                                                     │
 │  app.py: 自动刷新 (5s/30s/1m) → 触发重新查询 → 拿到干净数据          │
 │  charts.py: 用 DataFrame 列名画图                                    │
@@ -211,10 +218,11 @@ Dryer 全部 12 列、Quality 全部、CHP 全部、Mill kWh/t 等。
 
 | 数据 | 规则 | 备注 |
 |---|---|---|
-| Fuel_Level (Silo 1/2/3) | 负值→0, >5000 吨→NULL | 上限待工厂确认，可随时调整 |
+| Fuel_Level Silo 1 (450t) | [0, 520] 吨→有效, 超出→NULL | 容量 450t + 15% 容差 |
+| Fuel_Level Silo 2/3 (3500t) | [0, 4000] 吨→有效, 超出→NULL | 容量 3500t + 15% 容差 |
 | Infeed_Totaliser | 非负 | 累计值不应为负 |
 | Bagging/Truck Totaliser | 非负 | 累计值不应为负 |
-| Complete_Plant Production | 非负 | 最可靠数据源 |
+| Complete_Plant Production | [0, 50] t/h→有效, 超出→NULL | 正常 11-12 t/h，BG 偶现 30000+ 错值 |
 | Complete_Plant Totaliser | 非负 | 最可靠数据源 |
 | Mill Actual_Current | [0, 800] A | 放宽（堵机可瞬间飙高） |
 | Mill Roller Temp | [0, 250] °C | 放宽 |
@@ -270,10 +278,10 @@ BG 数据有 4 种频率：1s / 5s / 30s / 1h。统一重采样为 **30 秒**。
 
 | 文件 | 操作 | 说明 |
 |---|---|---|
-| `src/column_map.py` | **已更新** | 清洗规则(显示时过滤), Fuel_Level 上限 5000, Silo 容量 3500 t, `tons_to_pct()` |
+| `src/column_map.py` | **已更新** | 清洗规则(显示时过滤), Fuel_Level 上限 5000, Silo 容量(1=450t, 2/3=3500t), `tons_to_pct()` |
 | `src/ingest.py` | **待创建** | 采集引擎: CSV tail → 基本校验 → 30s 重采样 → UPSERT（不做范围清洗） |
 | `src/data.py` | **待修改** | 查询 live_data 表 + 查询后按 column_map 规则过滤 + SQLite/PostgreSQL 双支持 |
-| `src/config.py` | **待修改** | 加 `DATABASE_URL` / `BG_EXPORT_DIR` 环境变量 + `pellet_silo_level` 阈值 |
+| `src/config.py` | **待修改** | 加 `DATABASE_URL` / `BG_EXPORT_DIR` 环境变量 + `pellet_silo_level_1` / `pellet_silo_level_23` 阈值（Silo 1 与 Silo 2/3 分开设置） |
 | `src/app.py` | **待修改** | 动态时间范围 + Pellet Silo 百分比液位罐 + 页面布局重组（移除无数据面板） |
 | `src/charts.py` | **待修改** | `fig_pellet_silos()` 改为百分比液位罐 + 各图表缺失列保护 |
 | `src/translations.py` | **待修改** | 加 Pellet Silo 翻译 key + "No data" 翻译 |
@@ -293,6 +301,35 @@ BG 数据有 4 种频率：1s / 5s / 30s / 1h。统一重采样为 **30 秒**。
   - 如需 PostgreSQL（例如多节点部署），设 `DATABASE_URL` 环境变量即可切换
 - 部署流程: 本地开发 → 推送 GitHub → VM 上 `git pull` → `python src/app.py`
 - 未来可考虑云部署（Render 等），当前不需要
+
+### Windows VM 部署步骤
+
+```bash
+# 1. 环境准备（首次）
+git clone <repo-url> C:\LE
+cd C:\LE
+python -m pip install -r src/requirements.txt
+
+# 2. 首次导入（3GB CSV 预计 3-10 分钟）
+python src/ingest.py --once --source D:\BG_Export\
+
+# 3. 启动 Dashboard
+python src/app.py
+# 浏览器访问 http://localhost:8050
+
+# 4. 持续采集（每 10s 轮询 CSV 新增行）
+python src/ingest.py --source D:\BG_Export\ --interval 10
+```
+
+**生产环境推荐**: 用 Windows 任务计划程序创建两个任务:
+- **le-ingest**: 触发器=系统启动时, 操作=`pythonw.exe src/ingest.py --source D:\BG_Export\ --interval 10`
+- **le-dashboard**: 触发器=系统启动时, 操作=`pythonw.exe src/app.py`
+
+**日常更新**:
+```bash
+cd C:\LE && git pull && python -m pip install -r src/requirements.txt
+# 重启 le-ingest + le-dashboard 任务
+```
 
 ---
 
@@ -326,115 +363,21 @@ BG 目前只覆盖 17/52 列。Energy/CHP、Dryer、Quality、Events/Downtime �
 
 ---
 
-### Page 1 — Overview (KPI 总览)
+### Page 1/2/3 — 布局规格
 
-保持大字体 KPI 卡片风格，2 米外可读。
+> **详细线框图、KPI 定义表、图表清单、验收标准** → 见 [`docs/layout-spec.md`](layout-spec.md)（UI 布局唯一参考）。
+>
+> 本文档只记录 **Phase 8 相对旧版的变更摘要**，不重复线框图。
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│  ▸ PRODUCTION                                                       │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐              │
-│  │ Daily    │ │ Rate     │ │ Mills    │ │ Cumul.   │              │
-│  │ Output   │ │  12.3    │ │  3/3     │ │ Output   │              │
-│  │  156 t   │ │  t/h 🟢  │ │   🟢     │ │  2,450 t │              │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────┘              │
-├─────────────────────────────────────────────────────────────────────┤
-│  ▸ PELLET MILL STATUS                                               │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐                            │
-│  │ Mill 1   │ │ Mill 2   │ │ Mill 3   │                            │
-│  │  285 A   │ │  291 A   │ │  278 A   │                            │
-│  │   🟢     │ │   🟢     │ │   🟡     │                            │
-│  └──────────┘ └──────────┘ └──────────┘                            │
-├─────────────────────────────────────────────────────────────────────┤
-│  ▸ PELLET SILO LEVELS                                               │
-│  ┌───────┐  ┌───────┐  ┌───────┐                                   │
-│  │▓▓▓▓▓▓│  │▓▓▓▓  │  │▓▓    │    (Tank visual, 与 Dry Silo 一致) │
-│  │ 78%   │  │ 52%   │  │ 23%  │                                    │
-│  │Silo 1 │  │Silo 2 │  │Silo 3│                                    │
-│  └───────┘  └───────┘  └───────┘                                   │
-├─────────────────────────────────────────────────────────────────────┤
-│  ▸ DISPATCH (BG-only 数据, 新增面板)                                 │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐                            │
-│  │ Bagging  │ │ Truck    │ │ Total    │                            │
-│  │ Today    │ │ Today    │ │ Dispatch │                            │
-│  │  45 t    │ │  80 t    │ │  125 t   │                            │
-│  └──────────┘ └──────────┘ └──────────┘                            │
-└─────────────────────────────────────────────────────────────────────┘
-```
+#### Phase 8 布局变更摘要
 
-**变更说明:**
-- Production section: 保持不变（Daily Output, Rate, Mills OK, Cumulative）
-- **新增 Pellet Mill Status**: 每台 Mill 的最新 Load Amps + 阈值颜色
-- **Pellet Silo**: 从旧的吨数柱状图改为百分比液位罐（与 Dry Silo 风格一致），使用 `_ov_tank()` 组件
-- **新增 Dispatch section**: 用 Bagging/Truck Totaliser 算日差值，显示今日出货量
-- **移除**: Energy/CHP section, Dryer section, Quality grid（全部无 BG 数据）
+| 页面 | 变更 |
+|------|------|
+| **P1 Overview** | Production 4 卡片保留; **新增 Mill Status** 3 卡片 (Amps+阈值色); **Pellet Silo** 吨数柱状→百分比液位罐 `_ov_tank()`; **新增 Dispatch** 3 卡片 (Bagging/Truck/Total); **移除** Energy/CHP/Dryer/Quality sections |
+| **P2 Detail** | 面板 6→4: 保留 Production + Mill Health; **新增** Pellet Silo (level trend + infeed trend) + Dispatch (cumul trend); **移除** Dryer/Quality/CHP/Downtime; Mill kWh/t→cumul kWh; Roller Temp diff→L/R 两图; **移除底部全数据表** (25 列均有图表覆盖) |
+| **P3 AI** | 不变，4 个伪数据占位面板 + "Coming Soon" |
 
----
-
-### Page 2 — Detail (详细运营)
-
-面板导航条只保留有数据的面板。
-
-```
-[Production] [Mill Health] [Pellet Silo] [Dispatch]
-
-═══ Panel 1: Production ═════════════════════════════════════════════
-┌──────────────────────────────────────┐ ┌─────────────────────────┐
-│  Production Rate (t/h) 时间趋势线图  │ │ Period Output (大数字)   │
-│  (fig_production_lines)              │ │    2,450 t              │
-│                                      │ ├─────────────────────────┤
-│                                      │ │ Pellet Silo 液位罐 (×3) │
-│                                      │ │ (fig_pellet_silos — 新) │
-└──────────────────────────────────────┘ └─────────────────────────┘
-
-═══ Panel 2: Mill Health ════════════════════════════════════════════
-  Mill 1: 🟢 285 A / 65% / 72°C-68°C    (状态行)
-  Mill 2: 🟢 291 A / 70% / 75°C-71°C
-  Mill 3: 🟡 278 A / 58% / 69°C-65°C
-
-┌────── Load Amps Gauge (×3) ──────┐
-│  (fig_mill_gauges — 保持不变)     │
-└──────────────────────────────────┘
-┌───── Amps Trend ─────┐ ┌───── Feeder % Trend ──┐
-│ (fig_mill_amps_trend) │ │ (fig_mill_feeder)      │
-└──────────────────────┘ └───────────────────────┘
-┌── Roller Temp Diff ──┐ ┌── Mill Energy (新) ───┐
-│ (fig_roller_temp_diff)│ │ 累计 kWh 趋势 (×3)    │
-└──────────────────────┘ └───────────────────────┘
-
-═══ Panel 3: Pellet Silo ═══════════════════════════════════════════
-┌──── Silo Levels 时间趋势线图 ────────────────────────────────────┐
-│ Silo 1 ── / Silo 2 ── / Silo 3 ──  (百分比, 带阈值色带)        │
-│ (新图: fig_silo_level_trend)                                      │
-└──────────────────────────────────────────────────────────────────┘
-┌──── Infeed Totaliser 趋势 ──────────────────────────────────────┐
-│ 各仓累计进料趋势 (×3)                                            │
-│ (新图: fig_silo_infeed_trend)                                     │
-└──────────────────────────────────────────────────────────────────┘
-
-═══ Panel 4: Dispatch ══════════════════════════════════════════════
-┌──── Bagging + Truck 累计趋势 ───────────────────────────────────┐
-│ Bagging ── / Truck ──  (累计吨数时间线)                           │
-│ (新图: fig_dispatch_trend)                                        │
-└──────────────────────────────────────────────────────────────────┘
-
-═══ 底部: 全数据表 ═════════════════════════════════════════════════
-  (保持不变: 显示 live_data 表所有列，可横向滚动)
-```
-
-**变更说明:**
-- **移除**: Dryer panel, Quality panel, CHP panel, Downtime panel（全部无 BG 数据）
-- **保留**: Production panel（布局不变）, Mill Health panel（保持 gauge + 4 子图）
-- **Mill kWh/t 图改为 Mill Energy 趋势**: 旧 kWh/t 无法计算（BG 给的是累计 kWh 不是 kWh/t），改为显示 3 台 Mill 的累计能耗趋势
-- **新增 Pellet Silo panel**: Silo 百分比时间趋势 + Infeed Totaliser 趋势
-- **新增 Dispatch panel**: Bagging + Truck 累计吨数趋势
-- **面板导航条**: 从 6 个按钮减为 4 个
-
----
-
-### Page 3 — AI Placeholder
-
-不变。保持 4 个伪数据占位面板 + "Coming Soon"。
+**P2 图表清单** (11 个): `fig_production_lines`, `fig_pellet_silos`, `fig_mill_gauges`, `fig_mill_amps_trend`, `fig_mill_feeder`, `fig_roller_temp_left`, `fig_roller_temp_right`, `fig_mill_energy`, `fig_silo_level_trend`, `fig_silo_infeed_trend`, `fig_dispatch_trend`
 
 ---
 
@@ -455,7 +398,7 @@ python src/app.py
 # 4. 验证点:
 # - Overview 页 Production KPI = Complete_Plant.Production 最新值
 # - Mill Load Amps 图表 = Pellet_Mill_X.Actual_Current 趋势
-# - Pellet Silo 百分比液位罐 = Fuel_Level → tons_to_pct() (MAX=3500t)
+# - Pellet Silo 百分比液位罐 = Fuel_Level → tons_to_pct() (Silo1=450t, Silo2/3=3500t)
 # - 无 Dryer/Quality/CHP/Downtime 面板（已移除）
 # - 自动刷新 (5s) 开启后，若 ingest.py 在后台运行，Dashboard 自动更新
 ```

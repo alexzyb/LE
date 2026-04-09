@@ -11,15 +11,15 @@
 ```
 ┌──────────────────────────────────────────────────────────────────┐
 │ [Logo] Land Energy — Dashboard                                    │
-│        Date: [auto]     🌐[EN|中|FR] ⚙️                            │
-│        [1m][30m][1h][6h][24h]  Auto-refresh:[Off|5s|30s|1m]      │
+│        Date: [auto]     🌐[EN|中|FR] ☀️/🌙 ⚙️                       │
+│        [1m][30m][6h][24h][7d][1M][6M]  Auto-refresh:[Off|5s|30s|1m]      │
 │        [Overview] · [Detail] · [AI]                               │
 ├──────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  ── PRODUCTION ─────────────────────────────────────────────────  │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐        │
-│  │Daily Out │  │  Rate    │  │  Mills   │  │Cumulative│        │
-│  │  324 t   │  │ 13.8t/h🟡│  │  3/3  🟢 │  │ 2,450 t  │        │
+│  │Daily Out │  │  Rate    │  │  Mills   │  │Totaliser │        │
+│  │  324 t   │  │ 13.8t/h🟡│  │  3/3  🟢 │  │640,350 t │ (白色)  │
 │  └──────────┘  └──────────┘  └──────────┘  └──────────┘        │
 │                                                                  │
 │  ── MILL STATUS ────────────────────────────────────────────────  │
@@ -37,11 +37,16 @@
 │  └───────┘     └───────┘     └───────┘                           │
 │                                                                  │
 │  ── DISPATCH ───────────────────────────────────────────────────  │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐                       │
-│  │ Bagging  │  │ Truck    │  │  Total   │                       │
-│  │ Today    │  │ Today    │  │ Dispatch │                       │
-│  │  45 t    │  │  80 t    │  │  125 t   │                       │
-│  └──────────┘  └──────────┘  └──────────┘                       │
+│  ┌──────────┐  ┌──────────┐                                      │
+│  │ Daily    │  │ Daily    │                                      │
+│  │ Bagging  │  │ Truck    │                                      │
+│  │  12 t    │  │  28 t    │                                      │
+│  └──────────┘  └──────────┘                                      │
+│  ┌──────────┐  ┌──────────┐                                      │
+│  │ Bagging  │  │ Truck    │                                      │
+│  │Totaliser │  │Totaliser │                                      │
+│  │551,194 t │  │203,800 t │  (白色数值)                           │
+│  └──────────┘  └──────────┘                                      │
 │                                                                  │
 └──────────────────────────────────────────────────────────────────┘
 ```
@@ -51,10 +56,10 @@
 **Production (4 张 `_ov_card`)**:
 | 卡片 | 数据来源 | 单位 | 颜色 |
 |------|----------|------|------|
-| Daily Output | Totaliser 累计差值（当日） | t | 无颜色 |
+| Daily Output | Totaliser 累计差值（选定范围最后一天） | t | 无颜色 |
 | Hourly Rate | `Total tons passed belt weigher (hour)` 最新值 | t/h | `belt_weigher_hourly` 阈值 |
 | Mills Running | 3 台 Amps > 50A 计数 | x/3 | 3=🟢 1-2=🟡 0=🔴 |
-| Period Total | Totaliser 累计差值（选定时间范围） | t | 无颜色 |
+| Totaliser | `Total Pellets passed belt weigher (cumlative)` 最新原始值 | t | **白色** (`CS["text"]`) |
 
 **Mill Status (3 张 `_ov_card`)**:
 | 卡片 | 数据来源 | 单位 | 颜色 |
@@ -70,35 +75,35 @@
 | Pellet Silo 2 | `Pellet Silo Level 2 Readout` → `tons_to_pct()` | % | `pellet_silo_level` 阈值 |
 | Pellet Silo 3 | `Pellet Silo Level 3 Readout` → `tons_to_pct()` | % | `pellet_silo_level` 阈值 |
 
-**Dispatch (3 张 `_ov_card`)**:
+**Dispatch (4 张 `_ov_card`, 分两行)**:
 | 卡片 | 数据来源 | 单位 | 颜色 |
 |------|----------|------|------|
-| Bagging Today | `_bagging_totaliser` 当日差值 | t | 无颜色 |
-| Truck Today | `_truck_totaliser` 当日差值 | t | 无颜色 |
-| Total Dispatch | Bagging + Truck 合计 | t | 无颜色 |
+| Daily Bagging | `_bagging_totaliser` 当日差值（同 Daily Output 逻辑） | t | 无颜色 |
+| Daily Truck | `_truck_totaliser` 当日差值（同 Daily Output 逻辑） | t | 无颜色 |
+| Bagging Totaliser | `_bagging_totaliser` 最新原始值 | t | **白色** (`CS["text"]`) |
+| Truck Totaliser | `_truck_totaliser` 最新原始值 | t | **白色** (`CS["text"]`) |
 
 ---
 
 ## Page 2 — Detailed Operations (`/ops`)
 
-> 详细运营监控页：KPI 卡片行 + 4 面板 + 全数据表。
+> 详细运营监控页：4 面板（Production / Mill / Pellet Silo / Dispatch）。
 > 导航按钮: Overview · **Detail** · AI
+>
+> **LEGACY 说明**: 原设计包含顶部 KPI 卡片行（OEE / Daily Out / Rate / Mills Status），
+> 已在 Phase 8 中移除（BG 数据不覆盖 OEE）。代码中保留 `# LEGACY` 注释，不排除未来恢复。
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
 │ [Logo] Land Energy — Dashboard                                    │
-│        Date: [auto]     🌐[EN|中|FR] ⚙️                            │
-│        [1m][30m][1h][6h][24h]  Auto-refresh:[Off|5s|30s|1m]      │
-├──────────────────────────────────────────────────────────────────┤
-│ OEE    │ Daily    │ Rate    │ Mills                              │
-│ — %    │ Out (t)  │ (t/h)   │ Status                             │
-│ ░ N/A  │ 324.5    │ 13.7 🟡  │ 3/3 🟢                             │
+│        Date: [auto]     🌐[EN|中|FR] ☀️/🌙 ⚙️                       │
+│        [1m][30m][6h][24h][7d][1M][6M]  Auto-refresh:[Off|5s|30s|1m]      │
 ├──────────────────────────────────────────────────────────────────┤
 │ [Tab: Production] [Mill Health] [Pellet Silo] [Dispatch]         │
 ├──────────────────────────────────────────────────────────────────┤
 │ ┌─ Production & Throughput ──────────────────────────────────┐   │
-│ │ [Line: Belt Weigher t/h + 20 t/h target]  │ Period Output │   │
-│ │                                             │   2,450 t    │   │
+│ │ [Dual-axis: Rate t/h (L,green)             │ Totaliser     │   │
+│ │           + Totaliser t (R,cyan,solid)]     │  640,350 t   │   │
 │ │                                             │──────────────│   │
 │ │                                             │ [Tank×3:     │   │
 │ │                                             │  Silo % ]    │   │
@@ -106,8 +111,9 @@
 │ ┌─ Mill Health & Load ───────────────────────────────────────┐   │
 │ │ [●]M1:Running [●]M2:Running [●]M3:Running                 │   │
 │ │ [Gauge×3: Amps]                                            │   │
-│ │ [Line: Amps trend]        │ [Line: Feeder % trend]         │   │
-│ │ [Line: Roller Temp Diff]  │ [Line: Mill Energy kWh]        │   │
+│ │ [Line: Amps trend]          │ [Line: Feeder % trend]        │   │
+│ │ [Line: Left Roller Temp]    │ [Line: Right Roller Temp]     │   │
+│ │ [Line: Mill Energy kWh]     │                               │   │
 │ └────────────────────────────────────────────────────────────┘   │
 │ ┌─ Pellet Silo ──────────────────────────────────────────────┐   │
 │ │ [Line: Silo 1/2/3 % trend + threshold bands]              │   │
@@ -116,8 +122,6 @@
 │ ┌─ Dispatch ─────────────────────────────────────────────────┐   │
 │ │ [Line: Bagging + Truck Totaliser trend]                    │   │
 │ └────────────────────────────────────────────────────────────┘   │
-├──────────────────────────────────────────────────────────────────┤
-│ Full Data Table (live_data columns, scrollable, sortable)        │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -134,12 +138,13 @@
 
 | 面板 | 图表 | 类型 | 数据列 |
 |------|------|------|--------|
-| Production | `fig_production_lines` | 折线图 | Belt Weigher t/h |
+| Production | `fig_production_lines` | 双轴折线图 | 左轴: Rate t/h (绿), 右轴: Totaliser t (青,实线) |
 | Production | `fig_pellet_silos` | 液位罐 (tank overlay) | Silo 1/2/3 → % |
 | Mill | `fig_mill_gauges` | 半圆仪表盘 ×3 | Mill 1/2/3 Amps |
 | Mill | `fig_mill_amps_trend` | 折线图 (×3 线) | Mill 1/2/3 Amps |
 | Mill | `fig_mill_feeder` | 折线图 (×3 线) | Mill 1/2/3 Feeder % |
-| Mill | `fig_roller_temp_diff` | 折线图 (×3 线) | Mill 1/2/3 |Left-Right| Temp |
+| Mill | `fig_roller_temp_left` | 折线图 (×3 线) | Mill 1/2/3 Left Roller Temp |
+| Mill | `fig_roller_temp_right` | 折线图 (×3 线) | Mill 1/2/3 Right Roller Temp |
 | Mill | `fig_mill_energy` | 折线图 (×3 线) | Mill 1/2/3 累计 kWh |
 | Pellet Silo | `fig_silo_level_trend` | 折线图 + 阈值色带 | Silo 1/2/3 % |
 | Pellet Silo | `fig_silo_infeed_trend` | 折线图 (×3 线) | Silo 1/2/3 Infeed |
@@ -186,8 +191,8 @@
 
 | 页面 | 路径 | 导航按钮 | 内容 |
 |------|------|---------|------|
-| P1 KPI 总览 | `/` | Overview | 13 KPI (4 card + 3 card + 3 tank + 3 card) |
-| P2 详细运营 | `/ops` | Detail | KPI 行 + 4 面板 + 10 图表 + 全数据表 |
+| P1 KPI 总览 | `/` | Overview | 14 KPI (4 card + 3 card + 3 tank + 4 card) |
+| P2 详细运营 | `/ops` | Detail | KPI 行 + 4 面板 + 11 图表 |
 | P3 AI 占位 | `/ai` | AI | 4 伪面板 + overlay + Coming Soon |
 
 ---
@@ -223,7 +228,7 @@
 - [ ] Pellet Silo = 液位罐 (百分比，非吨数)
 - [ ] Mill Energy 趋势 = 累计 kWh (非 kWh/t)
 - [ ] Silo Level 趋势有阈值色带
-- [ ] 底部数据表显示 live_data 所有列
+- [ ] 所有 25 列 BG 数据均有对应图表展示
 - [ ] 无 Dryer/Quality/CHP/Downtime 面板（已移除）
 
 ### P2 图表精确性
@@ -233,7 +238,7 @@
 
 ### 阈值面板
 - [ ] 可打开设置面板
-- [ ] 4 个有效阈值可调: press_load_amps, belt_weigher_hourly, feeder_pct, pellet_silo_level
+- [ ] 5 个有效阈值可调: press_load_amps, belt_weigher_hourly, feeder_pct, pellet_silo_level_1, pellet_silo_level_23
 - [ ] 调整即时生效
 - [ ] Reset 恢复默认
 - [ ] 持久化到 thresholds.json

@@ -1,58 +1,192 @@
 # src/data.py
-"""Data access layer — all SQL queries against land_energy.db."""
+"""Data access layer — queries against live_data (BG Phase 8)."""
 
+import os
 import sqlite3
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
 
+from column_map import BY_DASHBOARD_COL, clean_value
+
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
 DB_PATH = Path(__file__).resolve().parent / "land_energy.db"
 
 
 def _open():
-    return sqlite3.connect(DB_PATH)
+    if DATABASE_URL and DATABASE_URL.startswith("postgresql"):
+        import psycopg2
+        return psycopg2.connect(DATABASE_URL)
+    return sqlite3.connect(str(DB_PATH))
 
 
-def get_shift_df(start_date: str, end_date: str) -> pd.DataFrame:
+def _table_exists(conn, name):
+    cur = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name=?", (name,)
+    )
+    return cur.fetchone() is not None
+
+
+# ─── DB metadata ──────────────────────────────────────────────────────────────
+
+def get_db_time_range():
+    """Return (min_dt, max_dt) as datetime objects, or (None, None) if no data."""
+    if not DB_PATH.exists():
+        return None, None
+    try:
+        with _open() as conn:
+            if not _table_exists(conn, "live_data"):
+                return None, None
+            row = conn.execute(
+                'SELECT MIN("Date Time"), MAX("Date Time") FROM live_data'
+            ).fetchone()
+        if row and row[0] and row[1]:
+            mn = datetime.fromisoformat(row[0][:19])
+            mx = datetime.fromisoformat(row[1][:19])
+            return mn, mx
+    except Exception as e:
+        print(f"[data.get_db_time_range] {e}")
+    return None, None
+
+
+# ─── Downsampling helper ──────────────────────────────────────────────────────
+
+def _resample_freq(start_dt, end_dt):
+    """Return pandas resample freq string, or None to keep raw 30s data."""
+    delta = end_dt - start_dt
+    if delta <= timedelta(hours=24):
+        return None        # raw 30s, ≤2,880 rows
+    if delta <= timedelta(days=14):
+        return "5min"      # ~2,016 rows
+    if delta <= timedelta(days=60):
+        return "30min"     # ~1,440 rows
+    if delta <= timedelta(days=365):
+        return "2h"        # ~4,380 rows (1 year)
+    return "6h"            # ≤~7,300 rows (multi-year)
+
+
+# Cumulative columns — use .last() instead of .mean() when downsampling
+_CUMULATIVE_COLS = {
+    "Total Pellets passed belt weigher (cumlative)",
+    "_pm1_energy_cumulative", "_pm2_energy_cumulative", "_pm3_energy_cumulative",
+    "_silo1_infeed_totaliser", "_silo2_infeed_totaliser", "_silo3_infeed_totaliser",
+    "_bagging_totaliser", "_truck_totaliser",
+}
+
+
+# ─── Cleaning ─────────────────────────────────────────────────────────────────
+
+def _apply_cleaning(df):
+    """Apply column_map cleaning rules to a wide DataFrame in-place."""
+    for col, entry in BY_DASHBOARD_COL.items():
+        if col not in df.columns:
+            continue
+        rule = entry.get("clean")
+        if not rule:
+            continue
+        df[col] = df[col].apply(lambda v: clean_value(v, rule))
+    return df
+
+
+# ─── Main query ───────────────────────────────────────────────────────────────
+
+def get_live_df(start_date, end_date) -> pd.DataFrame:
     """
-    Query shift_protocol for rows in [start_date, end_date].
-    Accepts YYYY-MM-DD (expanded to full day) or YYYY-MM-DDTHH:MM:SS (precise).
-    Returns a DataFrame with 'Date Time' parsed as datetime, sorted ascending.
+    Query live_data for [start_date, end_date].
+    - Applies column_map cleaning rules (display-time filtering)
+    - Auto-downsamples large ranges so Plotly never gets > ~3 000 rows
+    Returns wide DataFrame with 'Date Time' as datetime column, sorted ascending.
     """
     if not DB_PATH.exists():
         return pd.DataFrame()
-    start = f"{start_date}T00:00:00" if len(start_date) <= 10 else start_date
-    end   = f"{end_date}T23:59:59"   if len(end_date)   <= 10 else end_date
+
+    # Normalise to full ISO strings
+    s = str(start_date)
+    e = str(end_date)
+    start_str = (s + "T00:00:00") if len(s) <= 10 else s[:19]
+    end_str   = (e + "T23:59:59") if len(e) <= 10 else e[:19]
+
     try:
         with _open() as conn:
+            if not _table_exists(conn, "live_data"):
+                return pd.DataFrame()
             df = pd.read_sql_query(
-                """SELECT * FROM shift_protocol
-                   WHERE "Date Time" >= ? AND "Date Time" <= ?
-                   ORDER BY "Date Time" """,
+                'SELECT * FROM live_data'
+                ' WHERE "Date Time" >= ? AND "Date Time" <= ?'
+                ' ORDER BY "Date Time"',
                 conn,
-                params=[start, end],
+                params=[start_str, end_str],
             )
-        df["Date Time"] = pd.to_datetime(df["Date Time"], errors="coerce")
-        return df
     except Exception as e:
-        print(f"[data.get_shift_df] {e}")
+        print(f"[data.get_live_df] {e}")
         return pd.DataFrame()
 
+    if df.empty:
+        return df
 
-def get_events_df(start_date: str, end_date: str) -> pd.DataFrame:
-    """Query events_log for rows in [start_date, end_date].
-    Accepts date or datetime strings (only the date portion is used)."""
+    df["Date Time"] = pd.to_datetime(df["Date Time"], errors="coerce")
+    df = df.dropna(subset=["Date Time"]).sort_values("Date Time").reset_index(drop=True)
+
+    # Apply display-time cleaning
+    _apply_cleaning(df)
+
+    # Auto-downsample for large ranges
+    start_dt = pd.to_datetime(start_str)
+    end_dt   = pd.to_datetime(end_str)
+    freq = _resample_freq(start_dt, end_dt)
+
+    if freq and len(df) > 2000:
+        df = df.set_index("Date Time")
+        num_cols = df.select_dtypes(include="number").columns.tolist()
+        instant = [c for c in num_cols if c not in _CUMULATIVE_COLS]
+        cumul = [c for c in num_cols if c in _CUMULATIVE_COLS]
+        parts = []
+        if instant:
+            parts.append(df[instant].resample(freq).mean())
+        if cumul:
+            parts.append(df[cumul].resample(freq).last())
+        df = pd.concat(parts, axis=1).reset_index() if parts else df.reset_index()
+
+    return df
+
+
+# ─── Daily delta (no resampling) ──────────────────────────────────────────────
+
+def get_daily_delta(col: str) -> float | None:
+    """
+    Return today's delta for a cumulative column: last_value - first_value
+    for the most recent day that has data, using raw 30s data (no resampling).
+
+    This avoids the coarse-bucket bias where wider resample windows inflate
+    vals.iloc[0] and cause the delta to shrink (e.g. 77→67→44 across ranges).
+    """
     if not DB_PATH.exists():
-        return pd.DataFrame()
+        return None
     try:
         with _open() as conn:
-            return pd.read_sql_query(
-                """SELECT * FROM events_log
-                   WHERE Date >= ? AND Date <= ?
-                   ORDER BY Date, Time """,
+            if not _table_exists(conn, "live_data"):
+                return None
+            row = conn.execute(
+                f'SELECT MAX(substr("Date Time", 1, 10)) FROM live_data'
+                f' WHERE "{col}" IS NOT NULL'
+            ).fetchone()
+            if not row or not row[0]:
+                return None
+            last_date = row[0]
+
+            df = pd.read_sql_query(
+                f'SELECT "{col}" FROM live_data'
+                f' WHERE "Date Time" >= ? AND "Date Time" <= ?'
+                f' ORDER BY "Date Time"',
                 conn,
-                params=[start_date[:10], end_date[:10]],
+                params=[f"{last_date}T00:00:00", f"{last_date}T23:59:59"],
             )
     except Exception as e:
-        print(f"[data.get_events_df] {e}")
-        return pd.DataFrame()
+        print(f"[data.get_daily_delta] {e}")
+        return None
+
+    vals = df[col].dropna()
+    if len(vals) < 2:
+        return None
+    return round(float(vals.iloc[-1]) - float(vals.iloc[0]), 1)

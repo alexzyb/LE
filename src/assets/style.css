@@ -1,15 +1,53 @@
 /* ============================================================
    Land Energy — Girvan Pellet Plant Dashboard
-   SCADA Dark Theme — style.css
+   SCADA Theme — style.css  (supports dark / light via CSS vars)
    ============================================================ */
 
 /* Roboto Mono via 国内镜像 (loli.net)，Google Fonts 国内被屏蔽 */
 @import url('https://fonts.loli.net/css2?family=Roboto+Mono:wght@400;700&display=swap');
 
+/* ── Theme CSS Variables ────────────────────────────────────── */
+:root,
+[data-theme="dark"] {
+    --le-bg:       #1a1a2e;
+    --le-card:     #16213e;
+    --le-accent:   #0f3460;
+    --le-green:    #0f9b58;
+    --le-yellow:   #f4b400;
+    --le-red:      #e05545;
+    --le-text:     #e0e0e0;
+    --le-subtext:  #b0b0b0;
+    --le-border:   #2a2a4a;
+    --le-overlay:  rgba(26,26,46,0.68);
+    --le-green-a:  rgba(15,155,88,0.25);
+    --le-green-a2: rgba(15,155,88,0.15);
+    --le-yellow-a: rgba(244,180,0,0.08);
+    --le-placeholder: #3a3a5a;
+    --le-accordion-arrow: invert(1) brightness(0.7);
+}
+
+[data-theme="light"] {
+    --le-bg:       #f0f2f5;
+    --le-card:     #ffffff;
+    --le-accent:   #e3e8ef;
+    --le-green:    #0d8a4e;
+    --le-yellow:   #b8860b;
+    --le-red:      #c62828;
+    --le-text:     #1a1a2e;
+    --le-subtext:  #5a5a6e;
+    --le-border:   #d0d4da;
+    --le-overlay:  rgba(240,242,245,0.68);
+    --le-green-a:  rgba(13,138,78,0.25);
+    --le-green-a2: rgba(13,138,78,0.15);
+    --le-yellow-a: rgba(184,134,11,0.08);
+    --le-placeholder: #b0b0b0;
+    --le-accordion-arrow: none;
+}
+
 /* ── Base ────────────────────────────────────────────────────── */
 body {
-    background-color: #1a1a2e !important;
-    color: #e0e0e0 !important;
+    background-color: var(--le-bg) !important;
+    color: var(--le-text) !important;
     font-family: 'Segoe UI', system-ui, sans-serif;
     margin: 0;
     padding: 0;
@@ -26,9 +64,9 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background-color: #16213e;
+    background-color: var(--le-card);
     padding: 10px 24px;
-    border-bottom: 2px solid #0f3460;
+    border-bottom: 2px solid var(--le-accent);
     position: sticky;
     top: 0;
     z-index: 200;
@@ -51,14 +89,14 @@ body {
 .brand-name {
     font-size: 20px;
     font-weight: 700;
-    color: #e0e0e0;
+    color: var(--le-text);
     letter-spacing: 0.3px;
     display: block;
 }
 
 .brand-sub {
     font-size: 13px;
-    color: #9e9e9e;
+    color: var(--le-subtext);
     display: block;
 }
 
@@ -73,7 +111,7 @@ body {
 
 .topbar-label {
     font-size: 14px;
-    color: #9e9e9e;
+    color: var(--le-subtext);
     white-space: nowrap;
 }
 
@@ -90,7 +128,7 @@ body {
 }
 
 .lang-sep {
-    color: #2a2a4a;
+    color: var(--le-border);
     font-size: 14px;
     line-height: 1;
     padding: 0 1px;
@@ -98,30 +136,41 @@ body {
 
 .lang-btn {
     font-size: 14px !important;
-    color: #9e9e9e !important;
+    color: var(--le-subtext) !important;
     padding: 2px 6px !important;
     text-decoration: none !important;
     line-height: 1.5 !important;
 }
 
 .lang-btn:hover {
-    color: #e0e0e0 !important;
+    color: var(--le-text) !important;
 }
 
 .lang-active {
-    color: #0f9b58 !important;
+    color: var(--le-green) !important;
     font-weight: 700 !important;
 }
 
 .settings-btn {
     font-size: 18px !important;
     padding: 4px 8px !important;
-    color: #9e9e9e !important;
+    color: var(--le-subtext) !important;
     line-height: 1 !important;
 }
 
 .settings-btn:hover {
-    color: #e0e0e0 !important;
+    color: var(--le-text) !important;
+}
+
+.theme-toggle-btn {
+    font-size: 16px !important;
+    padding: 4px 8px !important;
+    color: var(--le-subtext) !important;
+    line-height: 1 !important;
+}
+
+.theme-toggle-btn:hover {
+    color: var(--le-text) !important;
 }
 
 .page-switcher {
@@ -129,22 +178,27 @@ body {
     align-items: center;
     gap: 4px;
     font-size: 12px;
-    color: #9e9e9e;
+    color: var(--le-subtext);
+}
+
+.nav-sep {
+    color: var(--le-border);
+    padding: 0 2px;
 }
 
 .page-link-btn {
-    color: #9e9e9e;
+    color: var(--le-subtext);
     font-size: 14px;
     text-decoration: none;
     padding: 2px 6px;
-    border: 1px solid #2a2a4a;
+    border: 1px solid var(--le-border);
     border-radius: 2px;
 }
 
 .page-link-btn:hover {
-    color: #e0e0e0;
-    border-color: #0f3460;
-    background-color: #0f3460;
+    color: var(--le-text);
+    border-color: var(--le-accent);
+    background-color: var(--le-accent);
     text-decoration: none;
 }
 
@@ -160,7 +214,7 @@ body {
     flex-wrap: wrap;
     margin-bottom: 12px;
     padding: 8px 0 4px;
-    border-bottom: 1px solid #2a2a4a;
+    border-bottom: 1px solid var(--le-border);
 }
 
 .panel-nav-btn {
@@ -169,8 +223,8 @@ body {
     border-radius: 2px !important;
     text-transform: uppercase;
     letter-spacing: 0.6px;
-    color: #9e9e9e !important;
-    border: 1px solid #2a2a4a !important;
+    color: var(--le-subtext) !important;
+    border: 1px solid var(--le-border) !important;
     background: transparent !important;
     text-decoration: none;
     line-height: 1.5;
@@ -178,9 +232,9 @@ body {
 }
 
 .panel-nav-btn:hover {
-    background-color: #0f3460 !important;
-    color: #e0e0e0 !important;
-    border-color: #0f3460 !important;
+    background-color: var(--le-accent) !important;
+    color: var(--le-text) !important;
+    border-color: var(--le-accent) !important;
     text-decoration: none;
 }
 
@@ -190,8 +244,8 @@ body {
 }
 
 .kpi-card {
-    background-color: #16213e !important;
-    border: 1px solid #2a2a4a !important;
+    background-color: var(--le-card) !important;
+    border: 1px solid var(--le-border) !important;
     border-radius: 4px !important;
 }
 
@@ -202,7 +256,7 @@ body {
 
 .kpi-label {
     font-size: 13px;
-    color: #9e9e9e;
+    color: var(--le-subtext);
     text-transform: uppercase;
     letter-spacing: 0.8px;
     margin-bottom: 4px;
@@ -220,22 +274,22 @@ body {
 
 .kpi-unit {
     font-size: 16px;
-    color: #9e9e9e;
+    color: var(--le-subtext);
     margin-left: 2px;
     vertical-align: baseline;
 }
 
 .kpi-subtitle {
     font-size: 12px;
-    color: #9e9e9e;
+    color: var(--le-subtext);
     margin-top: 4px;
     margin-bottom: 0;
 }
 
 /* ── Dashboard Panels ────────────────────────────────────────── */
 .dashboard-panel {
-    background-color: #16213e;
-    border: 1px solid #2a2a4a;
+    background-color: var(--le-card);
+    border: 1px solid var(--le-border);
     border-radius: 4px;
     margin-bottom: 12px;
     overflow: hidden;
@@ -243,7 +297,7 @@ body {
 
 .panel-header {
     padding: 10px 16px;
-    border-bottom: 1px solid #2a2a4a;
+    border-bottom: 1px solid var(--le-border);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -254,7 +308,7 @@ body {
     font-weight: 700 !important;
     text-transform: uppercase;
     letter-spacing: 1.5px;
-    color: #9e9e9e !important;
+    color: var(--le-subtext) !important;
     margin: 0 !important;
 }
 
@@ -264,7 +318,7 @@ body {
 }
 
 .placeholder-text {
-    color: #3a3a5a;
+    color: var(--le-placeholder);
     text-align: center;
     padding: 32px 16px;
     font-size: 14px;
@@ -272,15 +326,15 @@ body {
     margin: 0;
 }
 
-/* ── Date Picker dark overrides ──────────────────────────────── */
+/* ── Date Picker overrides ─────────────────────────────────── */
 .DateRangePicker,
 .DateRangePickerInput {
     background-color: transparent !important;
 }
 
 .DateRangePickerInput {
-    background-color: #0f3460 !important;
-    border: 1px solid #2a2a4a !important;
+    background-color: var(--le-accent) !important;
+    border: 1px solid var(--le-border) !important;
     border-radius: 4px !important;
     padding: 0 4px !important;
 }
@@ -291,7 +345,7 @@ body {
 
 .DateInput_input {
     background-color: transparent !important;
-    color: #e0e0e0 !important;
+    color: var(--le-text) !important;
     font-size: 12px !important;
     padding: 4px 8px !important;
     border-bottom: 2px solid transparent !important;
@@ -299,69 +353,69 @@ body {
 }
 
 .DateInput_input__focused {
-    border-bottom-color: #0f9b58 !important;
+    border-bottom-color: var(--le-green) !important;
 }
 
 .DateRangePickerInput_arrow {
-    color: #9e9e9e !important;
+    color: var(--le-subtext) !important;
     background: transparent;
 }
 
 .DateRangePickerInput_arrow_svg {
-    fill: #9e9e9e !important;
+    fill: var(--le-subtext) !important;
 }
 
 .DayPicker,
 .CalendarMonth,
 .CalendarMonthGrid {
-    background: #16213e !important;
+    background: var(--le-card) !important;
 }
 
 .CalendarMonth_caption {
-    color: #e0e0e0 !important;
+    color: var(--le-text) !important;
 }
 
 .DayPickerNavigation_button {
-    background: #0f3460 !important;
-    border: 1px solid #2a2a4a !important;
+    background: var(--le-accent) !important;
+    border: 1px solid var(--le-border) !important;
     border-radius: 2px !important;
 }
 
 .DayPickerNavigation_svg__horizontal {
-    fill: #e0e0e0 !important;
+    fill: var(--le-text) !important;
 }
 
 .CalendarDay__default {
-    background: #16213e !important;
-    color: #e0e0e0 !important;
-    border: 1px solid #2a2a4a !important;
+    background: var(--le-card) !important;
+    color: var(--le-text) !important;
+    border: 1px solid var(--le-border) !important;
 }
 
 .CalendarDay__default:hover {
-    background: #0f3460 !important;
-    color: #e0e0e0 !important;
+    background: var(--le-accent) !important;
+    color: var(--le-text) !important;
 }
 
 .CalendarDay__selected,
 .CalendarDay__selected:hover {
-    background: #0f9b58 !important;
-    border-color: #0f9b58 !important;
+    background: var(--le-green) !important;
+    border-color: var(--le-green) !important;
     color: #fff !important;
 }
 
 .CalendarDay__selected_span {
-    background: rgba(15, 155, 88, 0.25) !important;
-    border-color: rgba(15, 155, 88, 0.25) !important;
-    color: #e0e0e0 !important;
+    background: var(--le-green-a) !important;
+    border-color: var(--le-green-a) !important;
+    color: var(--le-text) !important;
 }
 
 .CalendarDay__hovered_span {
-    background: rgba(15, 155, 88, 0.15) !important;
-    color: #e0e0e0 !important;
+    background: var(--le-green-a2) !important;
+    color: var(--le-text) !important;
 }
 
 .DayPickerKeyboardShortcuts_show__bottomRight::before {
-    border-right-color: #0f9b58 !important;
+    border-right-color: var(--le-green) !important;
 }
 
 /* ── Page 3 / AI Placeholder panels ──────────────────────────── */
@@ -378,7 +432,7 @@ body {
 .coming-soon-overlay {
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(26, 26, 46, 0.68);
+    background: var(--le-overlay);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -392,24 +446,24 @@ body {
 }
 
 .overlay-text {
-    color: #9e9e9e;
+    color: var(--le-subtext);
     font-size: 12px;
     margin-top: 8px;
     margin-bottom: 0;
 }
 
 .p2-title {
-    color: #e0e0e0;
+    color: var(--le-text);
     font-size: 18px;
     font-weight: 700;
 }
 
 .p2-banner {
-    background: rgba(244, 180, 0, 0.08);
-    border: 1px solid #f4b400;
+    background: var(--le-yellow-a);
+    border: 1px solid var(--le-yellow);
     border-radius: 4px;
     padding: 12px 16px;
-    color: #f4b400;
+    color: var(--le-yellow);
     font-size: 13px;
     text-align: center;
 }
@@ -420,15 +474,15 @@ body {
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 1.5px;
-    color: #9e9e9e;
+    color: var(--le-subtext);
     margin: 0 0 10px 0;
     padding-bottom: 6px;
-    border-bottom: 1px solid #2a2a4a;
+    border-bottom: 1px solid var(--le-border);
 }
 
 .overview-card {
-    background-color: #16213e;
-    border: 1px solid #2a2a4a;
+    background-color: var(--le-card);
+    border: 1px solid var(--le-border);
     border-radius: 6px;
     padding: 20px 12px;
     text-align: center;
@@ -437,7 +491,7 @@ body {
 
 .overview-card-label {
     font-size: 12px;
-    color: #9e9e9e;
+    color: var(--le-subtext);
     text-transform: uppercase;
     letter-spacing: 0.8px;
     margin: 0 0 8px 0;
@@ -453,14 +507,14 @@ body {
 
 .overview-card-unit {
     font-size: 18px;
-    color: #9e9e9e;
+    color: var(--le-subtext);
     margin-left: 4px;
 }
 
 /* ── Overview Tank Level ─────────────────────────────────────── */
 .overview-tank {
-    background-color: #16213e;
-    border: 1px solid #2a2a4a;
+    background-color: var(--le-card);
+    border: 1px solid var(--le-border);
     border-radius: 6px;
     position: relative;
     overflow: hidden;
@@ -485,7 +539,7 @@ body {
 
 .overview-tank-label {
     font-size: 12px;
-    color: #9e9e9e;
+    color: var(--le-subtext);
     text-transform: uppercase;
     letter-spacing: 0.8px;
     font-weight: 600;
@@ -505,7 +559,7 @@ body {
 
 .overview-tank-unit {
     font-size: 18px;
-    color: #9e9e9e;
+    color: var(--le-subtext);
     margin-left: 4px;
     position: relative;
     z-index: 1;
@@ -518,7 +572,7 @@ body {
 }
 
 .quality-grid-cell {
-    background-color: #16213e;
+    background-color: var(--le-card);
     border-radius: 6px;
     padding: 18px 12px;
     text-align: center;
@@ -526,7 +580,7 @@ body {
 
 .quality-grid-label {
     font-size: 12px;
-    color: #9e9e9e;
+    color: var(--le-subtext);
     text-transform: uppercase;
     letter-spacing: 0.8px;
     margin: 0 0 8px 0;
@@ -542,46 +596,46 @@ body {
 
 .quality-grid-unit {
     font-size: 16px;
-    color: #9e9e9e;
+    color: var(--le-subtext);
     margin-left: 4px;
 }
 
 /* ── Threshold Settings Modal (Accordion + Inputs) ──────────── */
 .accordion {
-    --bs-accordion-bg: #16213e !important;
-    --bs-accordion-border-color: #2a2a4a !important;
-    --bs-accordion-btn-bg: #16213e !important;
-    --bs-accordion-btn-color: #e0e0e0 !important;
-    --bs-accordion-active-bg: #0f3460 !important;
-    --bs-accordion-active-color: #e0e0e0 !important;
+    --bs-accordion-bg: var(--le-card) !important;
+    --bs-accordion-border-color: var(--le-border) !important;
+    --bs-accordion-btn-bg: var(--le-card) !important;
+    --bs-accordion-btn-color: var(--le-text) !important;
+    --bs-accordion-active-bg: var(--le-accent) !important;
+    --bs-accordion-active-color: var(--le-text) !important;
     --bs-accordion-btn-focus-box-shadow: none !important;
 }
 
 .accordion-button::after {
-    filter: invert(1) brightness(0.7);
+    filter: var(--le-accordion-arrow);
 }
 
 .accordion-body {
-    background-color: #1a1a2e !important;
-    border-top: 1px solid #2a2a4a;
+    background-color: var(--le-bg) !important;
+    border-top: 1px solid var(--le-border);
     padding: 16px 12px !important;
 }
 
 #modal-settings .form-control {
-    background-color: #1a1a2e !important;
-    color: #e0e0e0 !important;
-    border-color: #2a2a4a !important;
+    background-color: var(--le-bg) !important;
+    color: var(--le-text) !important;
+    border-color: var(--le-border) !important;
     font-family: 'Roboto Mono', 'Courier New', monospace;
     font-size: 13px;
 }
 
 #modal-settings .form-control:focus {
-    border-color: #0f9b58 !important;
-    box-shadow: 0 0 0 0.15rem rgba(15, 155, 88, 0.25) !important;
+    border-color: var(--le-green) !important;
+    box-shadow: 0 0 0 0.15rem var(--le-green-a) !important;
 }
 
 #modal-settings .form-label {
-    color: #9e9e9e !important;
+    color: var(--le-subtext) !important;
     font-size: 11px !important;
     margin-bottom: 2px !important;
 }
@@ -591,43 +645,42 @@ body {
     text-decoration: none !important;
 }
 
-/* Ensure modal uses dark colors */
 .modal-content {
-    background-color: #16213e !important;
-    border: 1px solid #2a2a4a !important;
-    color: #e0e0e0 !important;
+    background-color: var(--le-card) !important;
+    border: 1px solid var(--le-border) !important;
+    color: var(--le-text) !important;
 }
 
 .modal-header {
-    border-bottom-color: #2a2a4a !important;
+    border-bottom-color: var(--le-border) !important;
 }
 
 .modal-footer {
-    border-top-color: #2a2a4a !important;
+    border-top-color: var(--le-border) !important;
 }
 
 /* Card backgrounds */
 .card {
-    background-color: #16213e !important;
-    border-color: #2a2a4a !important;
+    background-color: var(--le-card) !important;
+    border-color: var(--le-border) !important;
 }
 
-/* ── DataTable (Phase 3 placeholder) ─────────────────────────── */
+/* ── DataTable ──────────────────────────────────────────────── */
 .dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner table {
-    background-color: #16213e !important;
-    color: #e0e0e0 !important;
+    background-color: var(--le-card) !important;
+    color: var(--le-text) !important;
 }
 
 .dash-table-container .dash-header {
-    background-color: #0f3460 !important;
-    color: #9e9e9e !important;
+    background-color: var(--le-accent) !important;
+    color: var(--le-subtext) !important;
 }
 
 /* ── Scrollbar ────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #1a1a2e; }
-::-webkit-scrollbar-thumb { background: #0f3460; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #0f9b58; }
+::-webkit-scrollbar-track { background: var(--le-bg); }
+::-webkit-scrollbar-thumb { background: var(--le-accent); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--le-green); }
 
 /* ── Time Range Toolbar ──────────────────────────────────────── */
 .time-range-toolbar {
@@ -636,7 +689,7 @@ body {
     gap: 8px;
     margin-left: 12px;
     padding-left: 12px;
-    border-left: 1px solid #2a2a4a;
+    border-left: 1px solid var(--le-border);
 }
 
 .time-range-toolbar .btn-group .btn {
@@ -647,20 +700,20 @@ body {
 }
 
 .time-range-toolbar .btn-group .btn-outline-secondary {
-    color: #9e9e9e !important;
-    border-color: #2a2a4a !important;
+    color: var(--le-subtext) !important;
+    border-color: var(--le-border) !important;
     background: transparent !important;
 }
 
 .time-range-toolbar .btn-group .btn-outline-secondary:hover {
-    background-color: #0f3460 !important;
-    color: #e0e0e0 !important;
-    border-color: #0f3460 !important;
+    background-color: var(--le-accent) !important;
+    color: var(--le-text) !important;
+    border-color: var(--le-accent) !important;
 }
 
 .time-range-toolbar .btn-group .btn-secondary:not(.btn-outline-secondary) {
-    background-color: #0f9b58 !important;
-    border-color: #0f9b58 !important;
+    background-color: var(--le-green) !important;
+    border-color: var(--le-green) !important;
     color: #fff !important;
 }
 
@@ -669,9 +722,9 @@ body {
     display: inline-block !important;
     font-size: 11px !important;
     padding: 2px 6px !important;
-    background-color: #0f3460 !important;
-    color: #e0e0e0 !important;
-    border-color: #2a2a4a !important;
+    background-color: var(--le-accent) !important;
+    color: var(--le-text) !important;
+    border-color: var(--le-border) !important;
 }
 
 .refresh-indicator {
@@ -679,11 +732,18 @@ body {
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background-color: #0f9b58;
+    background-color: var(--le-green);
     animation: pulse-dot 1.5s ease-in-out infinite;
 }
 
 @keyframes pulse-dot {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.3; }
+}
+
+/* ── App root container ──────────────────────────────────────── */
+#app-root {
+    background-color: var(--le-bg);
+    min-height: 100vh;
+    color: var(--le-text);
 }

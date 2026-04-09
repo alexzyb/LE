@@ -17,14 +17,24 @@ SRC_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SRC_DIR))
 
 from config import (COLOR_SCHEME, DEFAULT_THRESHOLDS, THRESHOLD_GROUPS,
-                    get_thresholds, save_thresholds, reset_thresholds)
+                    get_thresholds, save_thresholds, reset_thresholds,
+                    get_color_scheme)
 from translations import t, DEFAULT_LANG
+from column_map import tons_to_pct
 import data as _data
 import charts as _charts
 
 # ─── Paths ────────────────────────────────────────────────────────────────────
 DB_PATH         = SRC_DIR / "land_energy.db"
 THRESHOLDS_JSON = SRC_DIR / "thresholds.json"
+
+
+def _cs(theme="dark"):
+    """Get colour scheme for current theme."""
+    return get_color_scheme(theme)
+
+
+# Keep CS as dark-theme default for static layout elements
 CS = COLOR_SCHEME
 
 # ─── App ──────────────────────────────────────────────────────────────────────
@@ -84,20 +94,26 @@ def threshold_color(key, value):
     return "grey"
 
 
-_HEX = {"green": CS["green"], "yellow": CS["yellow"],
-        "red": CS["red"], "grey": CS["subtext"]}
+def _hex_map(theme="dark"):
+    cs = _cs(theme)
+    return {"green": cs["green"], "yellow": cs["yellow"],
+            "red": cs["red"], "grey": cs["subtext"], "white": cs["text"]}
 
-def color_style(c):
-    return {"color": _HEX.get(c, CS["subtext"])}
+# Keep module-level for backward compat in static layout
+_HEX = _hex_map("dark")
+
+def color_style(c, theme="dark"):
+    hm = _hex_map(theme)
+    return {"color": hm.get(c, _cs(theme)["subtext"])}
 
 # ─── UI primitives ────────────────────────────────────────────────────────────
 
-def kpi_card(label, value, unit="", color="grey", note=""):
+def kpi_card(label, value, unit="", color="grey", note="", theme="dark"):
     return dbc.Card(
         dbc.CardBody([
             html.P(label, className="kpi-label"),
             html.Div([
-                html.Span(value, className="kpi-value", style=color_style(color)),
+                html.Span(value, className="kpi-value", style=color_style(color, theme)),
                 html.Span(f"\u00a0{unit}", className="kpi-unit") if unit else None,
             ]),
             html.P(note, className="kpi-subtitle") if note else None,
@@ -207,15 +223,16 @@ def build_kpi_row(lang):
 
 # ─── Panel component builders ─────────────────────────────────────────────────
 
-def _mill_status(df, lang):
+def _mill_status(df, lang, theme="dark"):
     """3 coloured status lights (HTML, not Plotly)."""
+    cs = _cs(theme)
     items = []
     for i, col in enumerate(
         ["Press 1 - Load Amps", "Press 2 - Load Amps", "Press 3 - Load Amps"], 1
     ):
         val = _latest_val(df, col)
         running = val is not None and val > 50
-        clr     = CS["green"] if running else CS["subtext"]
+        clr     = cs["green"] if running else cs["subtext"]
         status  = t("state_running", lang) if running else t("state_stopped", lang)
         amp_str = f"{val:.0f}\u202fA" if val is not None else "\u2014"
         items.append(html.Div([
@@ -229,39 +246,40 @@ def _mill_status(df, lang):
     return html.Div(items, style={"marginBottom": "10px"})
 
 
-def _quality_cards(df, lang):
+def _quality_cards(df, lang, theme="dark"):
     """4 quality metric tiles with threshold border colours."""
+    cs = _cs(theme)
     _thresh = get_thresholds()
     def qclr(key, val):
         if val is None:
-            return CS["subtext"]
+            return cs["subtext"]
         p = _thresh.get(key, {})
         m = p.get("mode", "")
         v = float(val)
         if m == "lower":
-            return CS["green"]  if v >= p["green_above"] else \
-                   CS["yellow"] if v >= p["red_below"]   else CS["red"]
+            return cs["green"]  if v >= p["green_above"] else \
+                   cs["yellow"] if v >= p["red_below"]   else cs["red"]
         if m == "upper":
-            return CS["green"]  if v <= p["green_below"] else \
-                   CS["yellow"] if v <= p["red_above"]   else CS["red"]
-        return CS["subtext"]
+            return cs["green"]  if v <= p["green_below"] else \
+                   cs["yellow"] if v <= p["red_above"]   else cs["red"]
+        return cs["subtext"]
 
     def tile(label, val, unit, key):
         clr     = qclr(key, val)
         val_str = f"{val:.1f}" if val is not None else "\u2014"
         return dbc.Col(
             html.Div([
-                html.P(label, style={"fontSize": "12px", "color": CS["subtext"],
+                html.P(label, style={"fontSize": "12px", "color": cs["subtext"],
                                      "textTransform": "uppercase",
                                      "letterSpacing": "0.8px", "margin": "0 0 4px 0"}),
                 html.Span(val_str, style={"fontSize": "36px", "fontWeight": "700",
                                           "fontFamily": "Roboto Mono, monospace",
                                           "color": clr}),
                 html.Span(f"\u202f{unit}", style={"fontSize": "16px",
-                                                   "color": CS["subtext"]}),
+                                                   "color": cs["subtext"]}),
             ], style={
                 "textAlign": "center", "padding": "12px 8px",
-                "background": CS["bg"], "borderRadius": "4px",
+                "background": cs["bg"], "borderRadius": "4px",
                 "border": f"1px solid {clr}",
             }),
             md=3, xs=6,
@@ -280,11 +298,11 @@ def _quality_cards(df, lang):
     ], className="g-2 mb-3")
 
 
-def _events_table(events_df):
+def _events_table(events_df, theme="dark"):
     """Dash DataTable: 10 most recent events."""
     if events_df.empty:
         return html.P("No events in selected date range.", className="placeholder-text")
-
+    cs = _cs(theme)
     show = (events_df
             .sort_values(["Date", "Time"], ascending=False)
             .head(10))
@@ -299,12 +317,12 @@ def _events_table(events_df):
         columns=[{"name": c, "id": c} for c in show.columns],
         data=show.to_dict("records"),
         style_table={"overflowX": "auto", "fontSize": "13px"},
-        style_header={"backgroundColor": "#0f3460", "color": CS["text"],
-                      "fontWeight": "bold", "border": f"1px solid {CS['border']}"},
-        style_data={"backgroundColor": CS["card"], "color": CS["text"],
-                    "border": f"1px solid {CS['border']}"},
+        style_header={"backgroundColor": cs["accent"], "color": cs["text"],
+                      "fontWeight": "bold", "border": f"1px solid {cs['border']}"},
+        style_data={"backgroundColor": cs["card"], "color": cs["text"],
+                    "border": f"1px solid {cs['border']}"},
         style_data_conditional=[
-            {"if": {"row_index": "odd"}, "backgroundColor": CS["bg"]},
+            {"if": {"row_index": "odd"}, "backgroundColor": cs["bg"]},
         ],
         style_cell={"padding": "6px 10px", "textAlign": "left",
                     "whiteSpace": "normal", "minWidth": "80px"},
@@ -312,11 +330,11 @@ def _events_table(events_df):
     )
 
 
-def _full_data_table(df):
+def _full_data_table(df, theme="dark"):
     """Scrollable DataTable with all shift_protocol columns."""
     if df.empty:
         return html.P("No data in selected range.", className="placeholder-text")
-
+    cs = _cs(theme)
     display = df.copy()
     if "Date Time" in display.columns:
         display["Date Time"] = display["Date Time"].dt.strftime("%Y-%m-%d %H:%M")
@@ -330,13 +348,13 @@ def _full_data_table(df):
         sort_action="native",
         filter_action="native",
         style_table={"overflowX": "auto", "fontSize": "13px", "minWidth": "100%"},
-        style_header={"backgroundColor": "#0f3460", "color": CS["text"],
-                      "fontWeight": "bold", "border": f"1px solid {CS['border']}",
+        style_header={"backgroundColor": cs["accent"], "color": cs["text"],
+                      "fontWeight": "bold", "border": f"1px solid {cs['border']}",
                       "whiteSpace": "nowrap"},
-        style_data={"backgroundColor": CS["card"], "color": CS["text"],
-                    "border": f"1px solid {CS['border']}"},
+        style_data={"backgroundColor": cs["card"], "color": cs["text"],
+                    "border": f"1px solid {cs['border']}"},
         style_data_conditional=[
-            {"if": {"row_index": "odd"}, "backgroundColor": CS["bg"]},
+            {"if": {"row_index": "odd"}, "backgroundColor": cs["bg"]},
         ],
         style_cell={"padding": "4px 8px", "textAlign": "left",
                     "minWidth": "80px", "whiteSpace": "nowrap"},
@@ -345,26 +363,35 @@ def _full_data_table(df):
 
 # ─── Overview page (new P1) ───────────────────────────────────────────────────
 
-def _ov_card(label, value, unit, color="grey"):
+def _ov_card(label, value, unit, color="grey", theme="dark"):
     """Large KPI card for the overview page."""
+    hm = _hex_map(theme)
+    cs = _cs(theme)
+    clr = hm.get(color, cs["text"])
+    bdr = hm.get(color, cs["border"])
     return dbc.Col(
         html.Div([
             html.P(label, className="overview-card-label"),
             html.Div([
                 html.Span(value, className="overview-card-value",
-                          style={"color": _HEX.get(color, CS["text"])}),
+                          style={"color": clr}),
                 html.Span(f"\u202f{unit}", className="overview-card-unit") if unit else None,
             ]),
         ], className="overview-card",
-           style={"borderLeft": f"4px solid {_HEX.get(color, CS['border'])}"}),
+           style={"borderLeft": f"4px solid {bdr}"}),
         md=3, sm=6, xs=6, className="mb-3",
     )
 
 
-def _ov_tank(label, value_num, value_str, color="grey"):
-    """Tank level card for the overview page (Dry Silo)."""
-    clr = _HEX.get(color, CS["text"])
+def _ov_tank(label, value_num, value_str, color="grey", theme="dark"):
+    """Tank level card for the overview page."""
+    hm = _hex_map(theme)
+    cs = _cs(theme)
+    clr = hm.get(color, cs["text"])
+    is_null = value_num is None
     pct = max(0, min(100, value_num or 0))
+    display_text = "N/A" if is_null else value_str
+    unit_text = "" if is_null else "\u202f%"
     return dbc.Col(
         html.Div([
             html.Div(style={
@@ -373,9 +400,9 @@ def _ov_tank(label, value_num, value_str, color="grey"):
             }, className="overview-tank-fill"),
             html.P(label, className="overview-tank-label"),
             html.Div([
-                html.Span(value_str, className="overview-tank-value",
+                html.Span(display_text, className="overview-tank-value",
                           style={"color": clr}),
-                html.Span("\u202f%", className="overview-tank-unit"),
+                html.Span(unit_text, className="overview-tank-unit"),
             ]),
         ], className="overview-tank",
            style={"borderLeft": f"4px solid {clr}"}),
@@ -383,9 +410,11 @@ def _ov_tank(label, value_num, value_str, color="grey"):
     )
 
 
-def _ov_quality_cell(label, value, unit, color="grey"):
+def _ov_quality_cell(label, value, unit, color="grey", theme="dark"):
     """Single cell in the quality grid."""
-    clr = _HEX.get(color, CS["subtext"])
+    hm = _hex_map(theme)
+    cs = _cs(theme)
+    clr = hm.get(color, cs["subtext"])
     return html.Div([
         html.P(label, className="quality-grid-label"),
         html.Div([
@@ -397,152 +426,123 @@ def _ov_quality_cell(label, value, unit, color="grey"):
        style={"border": f"1px solid {clr}"})
 
 
-def overview_layout(lang, start_date, end_date):
-    """P1: High-level KPI cards + Quality grid."""
-    df = _data.get_shift_df(start_date, end_date)
+def overview_layout(lang, start_date, end_date, theme="dark"):
+    """P1: KPI cards — Production / Mill Status / Pellet Silo / Dispatch."""
+    df = _data.get_live_df(start_date, end_date)
 
-    # ── helpers ───────────────────────────────────────────────────────────────
     def _fmt(val, decimals=1):
         if val is None:
             return "\u2014"
         return f"{val:,.{decimals}f}"
 
-    def _latest(col):
+    def _lv(col):
         return _latest_val(df, col)
 
     # ── PRODUCTION ────────────────────────────────────────────────────────────
-    # Daily output (cumulative delta for latest day)
-    cum_col = "Total Pellets passed belt weigher (cumlative)"
-    daily_out = None
-    if not df.empty and cum_col in df.columns and "Date Time" in df.columns:
-        df_dt = df.copy()
-        df_dt["Date Time"] = pd.to_datetime(df_dt["Date Time"], errors="coerce")
-        last_day = df_dt["Date Time"].dropna().max()
-        if last_day is not None:
-            day_df = df_dt[df_dt["Date Time"].dt.date == last_day.date()]
-            vals = day_df[cum_col].dropna()
-            if len(vals) >= 2:
-                daily_out = round(float(vals.iloc[-1]) - float(vals.iloc[0]), 1)
+    cum_col   = "Total Pellets passed belt weigher (cumlative)"
+    # Use raw 30s data (no resampling) to avoid coarse-bucket bias:
+    # wider resample windows inflate vals.iloc[0], shrinking the delta.
+    daily_out = _data.get_daily_delta(cum_col)
 
-    # Period cumulative
-    period_out = None
-    if not df.empty and cum_col in df.columns:
-        vals = df[cum_col].dropna()
-        if len(vals) >= 2:
-            period_out = round(float(vals.iloc[-1]) - float(vals.iloc[0]), 0)
+    totaliser_raw = _lv(cum_col)
 
-    rate = _latest("Total tons passed belt weigher (hour)")
+    rate     = _lv("Total tons passed belt weigher (hour)")
     rate_clr = threshold_color("belt_weigher_hourly", rate)
 
-    mills_ok = 0
-    for c in ["Press 1 - Load Amps", "Press 2 - Load Amps", "Press 3 - Load Amps"]:
-        v = _latest(c)
-        if v is not None and v > 50:
-            mills_ok += 1
+    mills_ok = sum(
+        1 for c in ["Press 1 - Load Amps", "Press 2 - Load Amps", "Press 3 - Load Amps"]
+        if (_lv(c) or 0) > 50
+    )
     mills_clr = "green" if mills_ok == 3 else ("yellow" if mills_ok > 0 else "red")
 
     prod_section = html.Div([
         html.H6(t("cat_production", lang), className="overview-section-title"),
         dbc.Row([
-            _ov_card(t("ov_daily_output", lang), _fmt(daily_out, 0), "t"),
-            _ov_card(t("ov_rate", lang),         _fmt(rate),         "t/h", rate_clr),
-            _ov_card(t("ov_mills", lang),         f"{mills_ok}/3",   "",    mills_clr),
-            _ov_card(t("ov_cumulative", lang),   _fmt(period_out, 0), "t"),
+            _ov_card(t("ov_daily_output", lang), _fmt(daily_out, 0), "t", "white", theme),
+            _ov_card(t("ov_rate",         lang), _fmt(rate),         "t/h", rate_clr, theme),
+            _ov_card(t("ov_mills",        lang), f"{mills_ok}/3",    "",    mills_clr, theme),
+            _ov_card(t("ov_cumulative",   lang), _fmt(totaliser_raw, 0), "t", "white", theme),
         ]),
     ], className="mb-2")
 
-    # ── ENERGY ────────────────────────────────────────────────────────────────
-    turbine  = _latest("Turbine Generated Power kW")
-    turb_clr = threshold_color("turbine_power", turbine)
-    furnace  = _latest("Furnace Temp")
-    furn_clr = threshold_color("furnace_temp", furnace)
-    thermal  = _latest("Thermal Oil OUT")
-    therm_clr = threshold_color("thermal_oil_out", thermal)
-    hru      = _latest("HRU Bypass Damper")
+    # ── MILL STATUS ───────────────────────────────────────────────────────────
+    mill_cards = []
+    for i, (col, key_label) in enumerate([
+        ("Press 1 - Load Amps", "ov_mill1_amps"),
+        ("Press 2 - Load Amps", "ov_mill2_amps"),
+        ("Press 3 - Load Amps", "ov_mill3_amps"),
+    ], 1):
+        val  = _lv(col)
+        clr  = threshold_color("press_load_amps", val)
+        mill_cards.append(_ov_card(t(key_label, lang), _fmt(val, 0), "A", clr, theme))
 
-    energy_section = html.Div([
-        html.H6(t("cat_energy", lang), className="overview-section-title"),
+    mill_section = html.Div([
+        html.H6(t("cat_mill_status", lang), className="overview-section-title"),
+        dbc.Row(mill_cards),
+    ], className="mb-2")
+
+    # ── PELLET SILO ───────────────────────────────────────────────────────────
+    silo_tanks = []
+    for col, key_label, th_key in [
+        ("Pellet Silo Level 1 Readout", "ov_pellet_silo_1", "pellet_silo_level_1"),
+        ("Pellet Silo Level 2 Readout", "ov_pellet_silo_2", "pellet_silo_level_23"),
+        ("Pellet Silo Level 3 Readout", "ov_pellet_silo_3", "pellet_silo_level_23"),
+    ]:
+        raw  = _lv(col)
+        pct  = tons_to_pct(raw, col)
+        clr  = threshold_color(th_key, pct)
+        silo_tanks.append(
+            _ov_tank(t(key_label, lang), pct, _fmt(pct, 0), clr, theme)
+        )
+
+    silo_section = html.Div([
+        html.H6(t("cat_pellet_silo", lang), className="overview-section-title"),
+        dbc.Row(silo_tanks),
+    ], className="mb-2")
+
+    # ── DISPATCH ──────────────────────────────────────────────────────────────
+    # Use raw 30s data (no resampling) — same fix as Daily Output.
+    bagging_daily = _data.get_daily_delta("_bagging_totaliser")
+    truck_daily   = _data.get_daily_delta("_truck_totaliser")
+    bagging_raw   = _lv("_bagging_totaliser")
+    truck_raw     = _lv("_truck_totaliser")
+
+    dispatch_section = html.Div([
+        html.H6(t("cat_dispatch", lang), className="overview-section-title"),
         dbc.Row([
-            _ov_card(t("ov_turbine", lang),      _fmt(turbine, 0), "kW",  turb_clr),
-            _ov_card(t("ov_furnace_temp", lang), _fmt(furnace, 0), "\u00b0C", furn_clr),
-            _ov_card(t("ov_thermal_oil", lang),  _fmt(thermal, 0), "\u00b0C", therm_clr),
-            _ov_card(t("ov_hru_bypass", lang),   _fmt(hru, 0),     "%"),
+            _ov_card(t("ov_bagging_delta", lang), _fmt(bagging_daily, 0), "t", "white", theme),
+            _ov_card(t("ov_truck_delta",   lang), _fmt(truck_daily,   0), "t", "white", theme),
         ]),
-    ], className="mb-2")
-
-    # ── DRYER ─────────────────────────────────────────────────────────────────
-    dryer_feed = _latest("Dryer out feed t/h")
-    dryer_clr  = threshold_color("dryer_out_feed", dryer_feed)
-    moisture   = _latest("Moisture %  Actual Value at Dryer Outlet")
-    moist_clr  = threshold_color("dryer_outlet_moisture", moisture)
-    silo1      = _latest("Dry Silo 1 Level %")
-    silo1_clr  = threshold_color("dry_silo_level", silo1)
-    silo2      = _latest("Dry Silo 2 Level %")
-    silo2_clr  = threshold_color("dry_silo_level", silo2)
-
-    dryer_section = html.Div([
-        html.H6(t("cat_dryer", lang), className="overview-section-title"),
         dbc.Row([
-            _ov_card(t("ov_dryer_feed", lang),      _fmt(dryer_feed), "t/h", dryer_clr),
-            _ov_card(t("ov_outlet_moisture", lang), _fmt(moisture),   "%",   moist_clr),
-            _ov_tank(t("ov_dry_silo_1", lang), silo1, _fmt(silo1, 0), silo1_clr),
-            _ov_tank(t("ov_dry_silo_2", lang), silo2, _fmt(silo2, 0), silo2_clr),
+            _ov_card(t("ov_bagging_total", lang), _fmt(bagging_raw, 0), "t", "white", theme),
+            _ov_card(t("ov_truck_total",   lang), _fmt(truck_raw,   0), "t", "white", theme),
         ]),
     ], className="mb-2")
 
-    # ── QUALITY (2×3 grid) ────────────────────────────────────────────────────
-    dur  = _latest("Durability %")
-    dens = _latest("Bulk  Density g/l")
-    pmoi = _latest("Pellet Moisture %")
-    ptmp = _latest("Temp of Pellets at cooler")
-    plen = _latest("Average Pellet Length(mm)")
-
-    dur_clr  = threshold_color("durability", dur)
-    dens_clr = threshold_color("bulk_density", dens)
-    pmoi_clr = threshold_color("pellet_moisture_finished", pmoi)
-    plen_clr = threshold_color("avg_pellet_length", plen)
-
-    quality_section = html.Div([
-        html.H6(t("cat_quality", lang), className="overview-section-title"),
-        html.Div([
-            _ov_quality_cell(t("ov_durability", lang),       _fmt(dur),  "%",   dur_clr),
-            _ov_quality_cell(t("ov_density", lang),          _fmt(dens, 0), "g/l", dens_clr),
-            _ov_quality_cell(t("ov_pellet_moisture", lang),  _fmt(pmoi), "%",   pmoi_clr),
-            _ov_quality_cell(t("ov_pellet_temp", lang),      _fmt(ptmp, 0), "\u00b0C"),
-            _ov_quality_cell(t("ov_pellet_length", lang),    _fmt(plen, 0), "mm",  plen_clr),
-        ], className="quality-grid"),
-    ], className="mb-2")
-
-    return html.Div([
-        prod_section,
-        energy_section,
-        dryer_section,
-        quality_section,
-    ])
+    return html.Div([prod_section, mill_section, silo_section, dispatch_section])
 
 
 # ─── Detailed ops page (P2) ──────────────────────────────────────────────────
 
-def page1_layout(lang, start_date, end_date):
-    df        = _data.get_shift_df(start_date, end_date)
-    events_df = _data.get_events_df(start_date, end_date)
+def page1_layout(lang, start_date, end_date, theme="dark"):
+    """P2: Detailed ops — 4 panels (Production / Mill / Pellet Silo / Dispatch)."""
+    df = _data.get_live_df(start_date, end_date)
+    cs = _cs(theme)
 
-    # Period cumulative output (Col 45 diff)
-    cum_col = "Total Pellets passed belt weigher (cumlative)"
-    period_out = None
+    # Raw Totaliser value (latest reading)
+    cum_col       = "Total Pellets passed belt weigher (cumlative)"
+    totaliser_val = None
     if not df.empty and cum_col in df.columns:
         vals = df[cum_col].dropna()
-        if len(vals) >= 2:
-            period_out = round(float(vals.iloc[-1]) - float(vals.iloc[0]), 1)
-    period_str = f"{period_out:.0f}" if period_out is not None else "\u2014"
+        if len(vals) > 0:
+            totaliser_val = round(float(vals.iloc[-1]), 0)
+    totaliser_str = f"{totaliser_val:,.0f}" if totaliser_val is not None else "\u2014"
 
     panel_items = [
-        (t("panel_production", lang), "sec-production"),
-        (t("panel_mill",       lang), "sec-mill"),
-        (t("panel_dryer",      lang), "sec-dryer"),
-        (t("panel_quality",    lang), "sec-quality"),
-        (t("panel_chp",        lang), "sec-chp"),
-        (t("panel_downtime",   lang), "sec-downtime"),
+        (t("panel_production",  lang), "sec-production"),
+        (t("panel_mill",        lang), "sec-mill"),
+        (t("panel_pellet_silo", lang), "sec-silo"),
+        (t("panel_dispatch",    lang), "sec-dispatch"),
     ]
     panel_nav = html.Div(
         [html.A(title, href=f"#{pid}", className="panel-nav-btn")
@@ -553,103 +553,68 @@ def page1_layout(lang, start_date, end_date):
     # ── Panel 1: Production ───────────────────────────────────────────────────
     prod_panel = section_panel(t("panel_production", lang), [
         dbc.Row([
+            dbc.Col(G(_charts.fig_production_lines(df, theme), height=260), md=8),
             dbc.Col([
-                G(_charts.fig_production_lines(df), height=260),
-            ], md=8),
-            dbc.Col([
-                # Big number: period cumulative output
                 html.Div([
-                    html.P("Period Output [Col\u202f45\u202f\u0394]",
-                           style={"fontSize": "12px", "color": CS["subtext"],
+                    html.P("Data Totaliser",
+                           style={"fontSize": "12px", "color": cs["subtext"],
                                   "textTransform": "uppercase", "letterSpacing": "0.8px",
                                   "margin": "0 0 4px 0"}),
                     html.Div([
-                        html.Span(period_str,
+                        html.Span(totaliser_str,
                                   style={"fontSize": "48px", "fontWeight": "700",
                                          "fontFamily": "Roboto Mono, monospace",
-                                         "color": CS["text"]}),
+                                         "color": cs["text"]}),
                         html.Span("\u202ft", style={"fontSize": "18px",
-                                                    "color": CS["subtext"]}),
+                                                    "color": cs["subtext"]}),
                     ]),
                 ], style={"textAlign": "center", "padding": "16px 8px",
-                          "background": CS["bg"], "borderRadius": "4px",
-                          "marginBottom": "8px", "border": f"1px solid {CS['border']}"}),
-                G(_charts.fig_pellet_silos(df), height=180),
+                          "background": cs["bg"], "borderRadius": "4px",
+                          "marginBottom": "8px", "border": f"1px solid {cs['border']}"}),
+                G(_charts.fig_pellet_silos(df, theme), height=180),
             ], md=4),
         ], className="g-2"),
     ], "sec-production")
 
-    # ── Panel 2: Mill Health ──────────────────────────────────────────────────
+    # ── Panel 2: Mill Health (3×2 grid) ─────────────────────────────────────
     mill_panel = section_panel(t("panel_mill", lang), [
-        _mill_status(df, lang),
-        G(_charts.fig_mill_gauges(df), height=190),
+        _mill_status(df, lang, theme),
+        G(_charts.fig_mill_gauges(df, theme), height=190),
         dbc.Row([
-            dbc.Col(G(_charts.fig_mill_amps_trend(df), height=220), md=6),
-            dbc.Col(G(_charts.fig_mill_feeder(df),     height=220), md=6),
+            dbc.Col(G(_charts.fig_mill_amps_trend(df, theme),    height=220), md=6),
+            dbc.Col(G(_charts.fig_mill_feeder(df, theme),        height=220), md=6),
         ], className="g-2 mt-2"),
         dbc.Row([
-            dbc.Col(G(_charts.fig_roller_temp_diff(df), height=200), md=6),
-            dbc.Col(G(_charts.fig_mill_kwht(df),        height=200), md=6),
+            dbc.Col(G(_charts.fig_roller_temp_left(df, theme),   height=200), md=6),
+            dbc.Col(G(_charts.fig_roller_temp_right(df, theme),  height=200), md=6),
         ], className="g-2 mt-2"),
+        G(_charts.fig_mill_energy(df, theme), height=200),
     ], "sec-mill")
 
-    # ── Panel 3: Dryer ────────────────────────────────────────────────────────
-    dryer_panel = section_panel(t("panel_dryer", lang), [
-        dbc.Row([
-            dbc.Col(G(_charts.fig_dry_silos(df),      height=240), md=4),
-            dbc.Col(G(_charts.fig_dryer_moisture(df), height=240), md=8),
-        ], className="g-2"),
-    ], "sec-dryer")
+    # ── Panel 3: Pellet Silo ──────────────────────────────────────────────────
+    silo_panel = section_panel(t("panel_pellet_silo", lang), [
+        G(_charts.fig_silo_level_trend(df, theme), height=280),
+        G(_charts.fig_silo_infeed_trend(df, theme), height=220),
+    ], "sec-silo")
 
-    # ── Panel 4: Quality ──────────────────────────────────────────────────────
-    quality_panel = section_panel(t("panel_quality", lang), [
-        _quality_cards(df, lang),
-        G(_charts.fig_quality_trends(df), height=380),
-    ], "sec-quality")
-
-    # ── Panel 5: CHP ─────────────────────────────────────────────────────────
-    chp_panel = section_panel(t("panel_chp", lang), [
-        dbc.Row([
-            dbc.Col(G(_charts.fig_turbine_gauge(df), height=200), md=4),
-            dbc.Col(G(_charts.fig_chp_trend(df),     height=200), md=8),
-        ], className="g-2"),
-        G(_charts.fig_hru_damper(df), height=160),
-    ], "sec-chp")
-
-    # ── Panel 6: Downtime ─────────────────────────────────────────────────────
-    downtime_panel = section_panel(t("panel_downtime", lang), [
-        html.Div(_events_table(events_df), style={"marginBottom": "12px"}),
-        dbc.Row([
-            dbc.Col(G(_charts.fig_downtime_pareto(events_df), height=280), md=6),
-            dbc.Col(G(_charts.fig_area_downtime(events_df),   height=280), md=6),
-        ], className="g-2"),
-    ], "sec-downtime")
-
-    # ── Full data table ───────────────────────────────────────────────────────
-    data_table_panel = html.Div(html.Div([
-        html.Div(
-            html.H5("Full Data Table (all columns)", className="panel-title"),
-            className="panel-header",
-        ),
-        html.Div(_full_data_table(df), className="panel-body"),
-    ], className="dashboard-panel"))
+    # ── Panel 4: Dispatch ─────────────────────────────────────────────────────
+    dispatch_panel = section_panel(t("panel_dispatch", lang), [
+        G(_charts.fig_dispatch_trend(df, theme), height=260),
+    ], "sec-dispatch")
 
     return html.Div([
         panel_nav,
-        build_kpi_row(lang),
         prod_panel,
         mill_panel,
-        dryer_panel,
-        quality_panel,
-        chp_panel,
-        downtime_panel,
-        data_table_panel,
+        silo_panel,
+        dispatch_panel,
     ])
 
 
 # ─── Page 3 / AI Placeholder layout ───────────────────────────────────────────
 
-def page2_layout(lang):
+def page2_layout(lang, theme="dark"):
+    cs = _cs(theme)
     def ai_panel(title, figure):
         return dbc.Col(
             html.Div([
@@ -674,37 +639,46 @@ def page2_layout(lang):
     return html.Div([
         html.H4([
             "AI Predictive Analytics \u2014 ",
-            html.Span(t("p2_coming_soon", lang), style={"color": CS["yellow"]}),
+            html.Span(t("p2_coming_soon", lang), style={"color": cs["yellow"]}),
         ], className="p2-title mb-3"),
         dbc.Row([
             ai_panel(t("p2_production_fc", lang),
-                     _charts.fig_ai_production_forecast()),
+                     _charts.fig_ai_production_forecast(theme)),
             ai_panel(t("p2_fault_pred", lang),
-                     _charts.fig_ai_fault_prediction()),
+                     _charts.fig_ai_fault_prediction(theme)),
         ], className="g-2 mb-2"),
         dbc.Row([
             ai_panel(t("p2_anomaly",    lang),
-                     _charts.fig_ai_anomaly_detection()),
+                     _charts.fig_ai_anomaly_detection(theme)),
             ai_panel(t("p2_root_cause", lang),
-                     _charts.fig_ai_root_cause()),
+                     _charts.fig_ai_root_cause(theme)),
         ], className="g-2 mb-3"),
         html.Div(["\u26a0\ufe0f\u2002", t("p2_availability", lang)],
                  className="p2-banner"),
     ])
 
 
+# ─── Startup: detect DB data range for date picker defaults ──────────────────
+_db_min, _db_max = _data.get_db_time_range()
+_picker_start = _db_min.strftime("%Y-%m-%d") if _db_min else "2022-01-01"
+_picker_end   = _db_max.strftime("%Y-%m-%d") if _db_max else "2026-12-31"
+_picker_min   = _picker_start
+_picker_max   = _picker_end
+
 # ─── Static app layout ────────────────────────────────────────────────────────
 
 app.layout = html.Div([
 
     dcc.Store(id="store-lang", data=DEFAULT_LANG, storage_type="session"),
+    dcc.Store(id="store-theme", data="dark", storage_type="local"),
     dcc.Store(id="store-thresh-ver", data=0),
     dcc.Store(id="store-time-mode",
               data={"mode": "custom", "quick_range": None},
-              storage_type="session"),
+              storage_type="memory"),
     dcc.Interval(id="auto-refresh-interval", interval=60000,
                  n_intervals=0, disabled=True),
     dcc.Location(id="url", refresh=False),
+    html.Div(id="_theme-dummy", style={"display": "none"}),
 
     # Top Bar
     html.Div([
@@ -721,10 +695,10 @@ app.layout = html.Div([
                       className="topbar-label"),
             dcc.DatePickerRange(
                 id="date-picker",
-                min_date_allowed="2026-01-01",
-                max_date_allowed="2026-02-01",
-                start_date="2026-01-01",
-                end_date="2026-02-01",
+                min_date_allowed=_picker_min,
+                max_date_allowed=_picker_max,
+                start_date=_picker_start,
+                end_date=_picker_end,
                 display_format="DD/MM/YYYY",
                 className="dash-date-picker mx-1",
             ),
@@ -736,11 +710,15 @@ app.layout = html.Div([
                                outline=True, n_clicks=0),
                     dbc.Button("30m", id="qr-30m", size="sm", color="secondary",
                                outline=True, n_clicks=0),
-                    dbc.Button("1h",  id="qr-1h",  size="sm", color="secondary",
-                               outline=True, n_clicks=0),
                     dbc.Button("6h",  id="qr-6h",  size="sm", color="secondary",
                                outline=True, n_clicks=0),
                     dbc.Button("24h", id="qr-24h", size="sm", color="secondary",
+                               outline=True, n_clicks=0),
+                    dbc.Button("7d",  id="qr-7d",  size="sm", color="secondary",
+                               outline=True, n_clicks=0),
+                    dbc.Button("1M",  id="qr-1M",  size="sm", color="secondary",
+                               outline=True, n_clicks=0),
+                    dbc.Button("6M",  id="qr-6M",  size="sm", color="secondary",
                                outline=True, n_clicks=0),
                 ], size="sm"),
                 dbc.Select(
@@ -771,18 +749,19 @@ app.layout = html.Div([
                 dbc.Button("FR", id="btn-lang-fr", color="link", size="sm",
                            className="lang-btn", n_clicks=0),
             ], className="lang-group"),
+            dbc.Button(id="btn-theme-toggle", color="link",
+                       className="theme-toggle-btn ms-2", n_clicks=0,
+                       children="\u2600\ufe0f", title="Toggle Theme"),
             dbc.Button("\u2699\ufe0f", id="btn-settings", color="link",
                        title="Threshold Settings",
                        className="settings-btn ms-2", n_clicks=0),
             html.Div([
                 dcc.Link(id="nav-overview", children="Overview", href="/",
                          className="page-link-btn"),
-                html.Span("\u00b7",
-                          style={"color": CS["border"], "padding": "0 2px"}),
+                html.Span("\u00b7", className="nav-sep"),
                 dcc.Link(id="nav-detail", children="Detail", href="/ops",
                          className="page-link-btn"),
-                html.Span("\u00b7",
-                          style={"color": CS["border"], "padding": "0 2px"}),
+                html.Span("\u00b7", className="nav-sep"),
                 dcc.Link(id="nav-ai", children="AI", href="/ai",
                          className="page-link-btn"),
             ], className="page-switcher ms-2"),
@@ -809,8 +788,7 @@ app.layout = html.Div([
         ]),
     ], id="modal-settings", size="xl", is_open=False, scrollable=True),
 
-], style={"backgroundColor": CS["bg"], "minHeight": "100vh",
-          "color": CS["text"]})
+], id="app-root")
 
 
 # ─── Callbacks ────────────────────────────────────────────────────────────────
@@ -826,6 +804,39 @@ def update_language(_a, _b, _c):
     btn = callback_context.triggered[0]["prop_id"].split(".")[0]
     return {"btn-lang-en": "en", "btn-lang-zh": "zh",
             "btn-lang-fr": "fr"}.get(btn, DEFAULT_LANG)
+
+
+# ─── Theme toggle callbacks ──────────────────────────────────────────────────
+
+@app.callback(
+    Output("store-theme", "data"),
+    Input("btn-theme-toggle", "n_clicks"),
+    State("store-theme", "data"),
+    prevent_initial_call=True,
+)
+def toggle_theme(_n, current):
+    return "light" if current == "dark" else "dark"
+
+
+@app.callback(
+    Output("btn-theme-toggle", "children"),
+    Input("store-theme", "data"),
+)
+def update_theme_icon(theme):
+    return "\U0001f319" if theme == "light" else "\u2600\ufe0f"
+
+
+# Clientside callback: set data-theme attribute on body for CSS variables
+app.clientside_callback(
+    """
+    function(theme) {
+        document.body.setAttribute('data-theme', theme || 'dark');
+        return '';
+    }
+    """,
+    Output("_theme-dummy", "children"),
+    Input("store-theme", "data"),
+)
 
 
 @app.callback(
@@ -875,16 +886,18 @@ def update_refresh_interval(value):
     Output("store-time-mode", "data"),
     [Input("qr-1m",    "n_clicks"),
      Input("qr-30m",   "n_clicks"),
-     Input("qr-1h",    "n_clicks"),
      Input("qr-6h",    "n_clicks"),
      Input("qr-24h",   "n_clicks"),
+     Input("qr-7d",    "n_clicks"),
+     Input("qr-1M",    "n_clicks"),
+     Input("qr-6M",    "n_clicks"),
      Input("btn-apply", "n_clicks")],
     prevent_initial_call=True,
 )
 def update_time_mode(*_args):
     trigger = callback_context.triggered[0]["prop_id"].split(".")[0]
-    qr_map = {"qr-1m": "1m", "qr-30m": "30m", "qr-1h": "1h",
-              "qr-6h": "6h", "qr-24h": "24h"}
+    qr_map = {"qr-1m": "1m", "qr-30m": "30m", "qr-6h": "6h",
+              "qr-24h": "24h", "qr-7d": "7d", "qr-1M": "1M", "qr-6M": "6M"}
     if trigger in qr_map:
         return {"mode": "quick", "quick_range": qr_map[trigger]}
     return {"mode": "custom", "quick_range": None}
@@ -893,15 +906,17 @@ def update_time_mode(*_args):
 @app.callback(
     [Output("qr-1m",  "outline"),
      Output("qr-30m", "outline"),
-     Output("qr-1h",  "outline"),
      Output("qr-6h",  "outline"),
-     Output("qr-24h", "outline")],
+     Output("qr-24h", "outline"),
+     Output("qr-7d",  "outline"),
+     Output("qr-1M",  "outline"),
+     Output("qr-6M",  "outline")],
     Input("store-time-mode", "data"),
 )
 def highlight_active_qr(time_mode):
     time_mode = time_mode or {}
     active = time_mode.get("quick_range")
-    ids = ["1m", "30m", "1h", "6h", "24h"]
+    ids = ["1m", "30m", "6h", "24h", "7d", "1M", "6M"]
     return [qr != active for qr in ids]
 
 
@@ -909,6 +924,7 @@ def highlight_active_qr(time_mode):
     Output("page-content", "children"),
     [Input("url",                   "pathname"),
      Input("store-lang",            "data"),
+     Input("store-theme",           "data"),
      Input("btn-apply",             "n_clicks"),
      Input("store-thresh-ver",      "data"),
      Input("store-time-mode",       "data"),
@@ -916,33 +932,38 @@ def highlight_active_qr(time_mode):
     [State("date-picker", "start_date"),
      State("date-picker", "end_date")],
 )
-def render_page(pathname, lang, _n, _tv, time_mode, _n_int,
+def render_page(pathname, lang, theme, _n, _tv, time_mode, _n_int,
                 start_date, end_date):
     from datetime import datetime, timedelta
     lang = lang or DEFAULT_LANG
+    theme = theme or "dark"
     time_mode = time_mode or {"mode": "custom", "quick_range": None}
 
     if time_mode["mode"] == "quick" and time_mode.get("quick_range"):
-        now = datetime.now()
+        # Anchor = real current time (not DB max)
+        anchor = datetime.now()
         delta_map = {
             "1m":  timedelta(minutes=1),
             "30m": timedelta(minutes=30),
-            "1h":  timedelta(hours=1),
             "6h":  timedelta(hours=6),
             "24h": timedelta(hours=24),
+            "7d":  timedelta(days=7),
+            "1M":  timedelta(days=30),
+            "6M":  timedelta(days=182),
         }
-        delta = delta_map[time_mode["quick_range"]]
-        start_date = (now - delta).strftime("%Y-%m-%dT%H:%M:%S")
-        end_date   = now.strftime("%Y-%m-%dT%H:%M:%S")
+        delta      = delta_map[time_mode["quick_range"]]
+        start_date = (anchor - delta).strftime("%Y-%m-%dT%H:%M:%S")
+        end_date   = anchor.strftime("%Y-%m-%dT%H:%M:%S")
     else:
-        start_date = start_date or "2026-01-01"
-        end_date   = end_date   or "2026-02-01"
+        start_date = start_date or _picker_start
+        end_date   = end_date   or _picker_end
+
 
     if pathname == "/ops":
-        return page1_layout(lang, start_date, end_date)
+        return page1_layout(lang, start_date, end_date, theme)
     if pathname == "/ai":
-        return page2_layout(lang)
-    return overview_layout(lang, start_date, end_date)
+        return page2_layout(lang, theme)
+    return overview_layout(lang, start_date, end_date, theme)
 
 
 @app.callback(
@@ -966,6 +987,7 @@ def toggle_settings(_a, _b, _c, _d, is_open):
 _GROUP_I18N = {
     "Mill": "group_mill", "Dryer": "group_dryer", "Quality": "group_quality",
     "CHP": "group_chp", "Throughput": "group_throughput", "Other": "group_other",
+    "Silo": "group_silo",
 }
 
 _MODE_BOUNDS = {
@@ -1060,7 +1082,14 @@ def save_or_reset_thresholds(n_save, n_reset, values, ids, ver):
 # ─── Entry point ──────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    db_ok = "OK" if DB_PATH.exists() else "NOT FOUND \u2014 run init_db.py first"
+    if DB_PATH.exists():
+        mn, mx = _data.get_db_time_range()
+        if mn:
+            db_ok = f"OK  ({mn.date()} → {mx.date()}, live_data)"
+        else:
+            db_ok = "exists but live_data table empty — run ingest.py first"
+    else:
+        db_ok = "NOT FOUND — run:  python src/ingest.py --source BaumgartnerData/ --once"
     print(f"Database : {DB_PATH}  [{db_ok}]")
     import os
     port = int(os.environ.get("PORT", 8050))
