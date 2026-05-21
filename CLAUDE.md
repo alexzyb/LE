@@ -45,6 +45,7 @@
 | `docs/background.md` | 需要业务背景时 | 项目背景、工厂架构、商业目标 |
 | `docs/data-analysis.md` | 需要参数含义时 | 前期数据分析（参数详解、阈值来源推导） |
 | `docs/deployment.md` | Render.com 云端部署时 | Render.com 部署步骤 |
+| `docs/timestamp-offset-analysis.md` | 处理时间戳/时区问题时 | BG 时间戳偏移问题分析、BST/GMT 修复方案、历史数据 SQL 修正方法 |
 
 ## 参考资料目录（只读，不主动使用）
 

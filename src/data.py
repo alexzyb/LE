@@ -5,8 +5,11 @@ import os
 import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pandas as pd
+
+_TZ_LONDON = ZoneInfo("Europe/London")
 
 from column_map import BY_DASHBOARD_COL, clean_value
 
@@ -127,6 +130,12 @@ def get_live_df(start_date, end_date) -> pd.DataFrame:
 
     df["Date Time"] = pd.to_datetime(df["Date Time"], errors="coerce")
     df = df.dropna(subset=["Date Time"]).sort_values("Date Time").reset_index(drop=True)
+    # Convert UTC → Europe/London (BST in summer, GMT in winter — auto DST)
+    df["Date Time"] = (
+        df["Date Time"].dt.tz_localize("UTC")
+        .dt.tz_convert(_TZ_LONDON)
+        .dt.tz_localize(None)
+    )
 
     # Apply display-time cleaning
     _apply_cleaning(df)

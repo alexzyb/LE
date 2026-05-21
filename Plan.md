@@ -2,7 +2,7 @@
 
 > ⚠️ **每次启动必读此文件，每轮任务结束后必须更新。**
 
-## 📅 最后更新: 2026-04-09 (续)
+## 📅 最后更新: 2026-04-10
 ## 🏁 当前阶段: Phase 8 🔄 — Live Data Integration
 
 ---
@@ -101,6 +101,24 @@
 - [x] **timestamp format 说明**: BG 格式 `2024-03-22T08:27:00.1910000+00:00`（含纳秒+时区偏移），无法用固定 format 字符串；让 pandas 自动推断是正确做法，UserWarning 无害
 - [x] **持续监控模式**: `python ingest.py --source "D:\CSVData\BaumgartnerData"` 默认每 5 秒轮询新增字节（`--interval N` 可调）
 
+### Phase 8k — 日期选择器 Bug 修复 ✅ (2026-04-10 完成)
+- [x] **DatePicker max_date_allowed Bug**: 日期选择器上限锁死在 app 启动时的 DB 最大日期，持续注入新数据后仍无法选择今天
+  - 根本原因: `_db_max = get_db_time_range()` 是模块级代码，只在 `python app.py` 启动时执行一次，之后不更新
+  - 修复: `_picker_max` 改为 `datetime.now() + 1 day`（始终允许选到今天），顶部新增 `from datetime import datetime, timedelta`
+  - 影响文件: `src/app.py`（仅此一个文件）
+
+### Phase 8l — 时间戳时区修复 ✅ (2026-05-21 完成)
+- [x] **问题**: Dashboard 图表显示 UTC 时间，UK 用户看到的时间比本地时间慢 2 小时
+  - 1 小时：BG WinCC 测量时钟未应用夏令时（BST），记录的 `timestamp_utc` 比真实 UTC 慢 1 小时（待 Christian 修复 BG 服务器时区）
+  - 1 小时：Dashboard 直接显示 UTC，UK 夏令时（BST = UTC+1）导致固有 1 小时差
+- [x] **诊断**: 对比 CSV 的 `sync_timestamp_utc`（正确实时）与 `timestamp_utc`（慢 1 小时），确认数据本身是实时的，仅时间戳偏移
+- [x] **修复**: `src/data.py` — `get_live_df()` 返回前将 UTC 时间戳转换为 Europe/London 本地时间（`zoneinfo.ZoneInfo`，自动处理 BST/GMT 切换）
+  - 顶部新增 `from zoneinfo import ZoneInfo` + `_TZ_LONDON = ZoneInfo("Europe/London")`
+  - 解析 `Date Time` 列后：`dt.tz_localize("UTC").dt.tz_convert(_TZ_LONDON).dt.tz_localize(None)`
+  - 效果：图表时间 +1h（UTC→BST），差距从 2 小时缩小到 1 小时；等 Christian 修好 BG 时钟后差距归零
+- [x] **仅改 `src/data.py` 一个文件**，无需重新导入数据，重启 `app.py` 即生效
+- [ ] 待办：发邮件给 Christian，请他修复 BG WinCC 服务器时区（夏令时未应用）
+
 ### Phase 8d — 生产部署
 - [x] Windows VM + SQLite (默认) + 本地 BG CSV 目录（见 Phase 8h）
 - [ ] 验证 Dashboard 在 VM 上显示所有 Mill/Amps/Energy 数据
@@ -119,6 +137,8 @@
 | 5 | 大范围查询性能 (>1M/6M/全量) 在 3GB+ 数据时可能慢 (10-60s) | 已知: 日常监控 (≤24h) 无影响; 需要时可优化 SQL 层降采样 |
 | 6 | 大 CSV 文件 (2GB+) 一次性 read() 导致 parse error | **已修复 (Phase 8h)**: 改为 50MB 分块读取，9 个文件全部正常 |
 | 7 | Production Rate 偶现 30000+ t/h 天文数字错值 | **已修复 (Phase 8j)**: column_map.py 清洗规则 non_negative→range [0,50]，>50 t/h 过滤为 NULL |
+| 8 | 日期选择器无法选今天（max_date_allowed 锁死在启动时） | **已修复 (Phase 8k)**: _picker_max 改为 now()+1day，不再依赖 DB 最大日期 |
+| 9 | BG WinCC 测量时钟未应用 BST，timestamp_utc 比真实 UTC 慢 1 小时 | **部分修复 (Phase 8l)**: data.py 加 UTC→Europe/London 转换抵消 Dashboard 侧 1 小时；BG 侧待 Christian 修复。Christian 修复后需记录精确时间点，用 `docs/timestamp-offset-analysis.md` 中的 SQL 脚本修正历史数据 |
 
 ---
 
@@ -141,3 +161,5 @@
 | 2026-04-09 | 8h | **VM 部署 + Ingest 引擎修复**: ①VM 部署: LE 复制到 Windows VM, BG 路径 D:\CSVData\BaumgartnerData ②大文件 parse error 根本原因: 一次性 f.read() 整 2GB 文件撑爆 pandas StringIO 解析器 ③修复: 重写为 50MB 分块读取 — read_chunk()+_get_header(); ingest_once()循环分块; 9个CSV全部成功导入489万桶 ④错误信息改善: 打印 type(e).__name__+字节偏移 ⑤澄清: timestamp_utc(实际采集,每行递增) vs sync_timestamp_utc(CDC批次时间,同批相同); 时间格式含纳秒+时区偏移,pandas自动推断正确,UserWarning无害 ⑥30s bucket对不同频率数据: 1s→取last无损; 30s→1:1; 1h→稀疏(119个null桶+1个有值) |
 | 2026-04-09 | 8i | **Daily Output/Bagging/Truck 降采样偏差修复 + 虚线移除**: ①**根本原因**: Daily delta 从降采样后的df计算，2h桶的vals.iloc[0]含2小时产出，导致不同时间范围显示77→67→44递减偏差 ②**修复**: data.py新增get_daily_delta(col)——直接查原始30s数据，不降采样，取最近一天的last-first差值；app.py中Daily Output/Bagging/Truck全部改用此函数 ③**移除参考虚线**: charts.py删除fig_mill_amps的400A/460A虚线 + fig_mill_feeder的55%虚线 |
 | 2026-04-09 | 8j | **Production Rate 异常值过滤**: column_map.py Production 清洗规则 non_negative→range[0,50] t/h（正常11-12 t/h，BG偶现30000+错值→NULL）; 文档同步: phase8-live-data.md §4清洗表 + thresholds.md Belt Weigher + Plan.md 已知风险#7 |
+| 2026-04-10 | 8k | **日期选择器Bug修复**: DatePicker max_date_allowed 锁死在启动时DB最大日期→改为 now()+1day; 顶部新增 datetime/timedelta 导入; 仅改 app.py 一个文件 |
+| 2026-05-21 | 8l | **时间戳时区修复**: Dashboard 显示 UTC 时间，UK 用户看到比本地慢 2 小时（1h=BG时钟未应用BST，1h=UTC vs BST显示差）; 诊断: sync_timestamp_utc 正确实时，timestamp_utc 慢1h，确认BG侧问题; 修复: data.py get_live_df() 加 UTC→Europe/London 转换（zoneinfo 自动DST），差距缩至1h; 待Christian修复BG时钟后归零; 仅改 data.py |
