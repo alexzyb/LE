@@ -40,7 +40,7 @@ The BG system writes sensor readings to CSV files. The ingest engine reads new d
 | **Daily Output** | Today's production (not affected by time range selection) | t |
 | **Production Rate** | Latest belt weigher reading | t/h |
 | **Mills Active** | How many mills are running (e.g. "2/3") | — |
-| **Cumulative** | Total tonnes since data began | t |
+| **YTD Output** | This year's accumulated production (Jan 1 → now) | t |
 
 **Mills Active colour:**
 
@@ -66,24 +66,26 @@ Three tank gauges showing fill level as a percentage. Silo 1 capacity = 450 t; S
 |---|---|
 | **Daily Bagging** | Today's bagging output (t) — not affected by time range |
 | **Daily Truck** | Today's truck loading (t) — not affected by time range |
-| **Bagging Totaliser** | Cumulative bagging (t) |
-| **Truck Totaliser** | Cumulative truck loading (t) |
+| **YTD Bagging** | This year's accumulated bagging (Jan 1 → now) (t) |
+| **YTD Truck** | This year's accumulated truck loading (Jan 1 → now) (t) |
 
 ---
 
 ## 4. Page 2 — Detail Charts
 
-All charts respond to the time range controls. Four panels:
+The Production and Mill panels respond to the **global** time range controls (top bar). Four panels:
 
 > **[Screenshot — Detail page]**
 
-**Production** — Dual-axis chart: rate (t/h) on the left, cumulative totaliser (t) on the right.
+**Production** — Dual-axis chart: rate (t/h) on the left, cumulative totaliser (t) on the right. The **YTD Output** box shows the selected year's production; use the **year dropdown** next to it to view past years (only years with production data are listed; each past year shows its full Jan–Dec total).
 
 **Mill Health** — Load Amps, Feeder Speed, Left/Right Roller Temperature, Energy for Mills 1/2/3. *(Currently shows March–May 2024 historical data.)*
 
-**Pellet Silo** — Level trend (%), Infeed Totalisers, and a bar chart of current fill.
+**Pellet Silo** — Level trend (%) and Infeed Totalisers.
 
 **Dispatch** — Cumulative bagging and truck loading totalisers over time.
+
+> **Independent range for Silo & Dispatch:** The Pellet Silo and Dispatch panels have their **own** range selector ("Silo & Dispatch Range", default **6 months**, options 24h / 7d / 1M / 6M / 1Y). This lets you watch a longer trend for silos and dispatch while keeping the Mill panels on a short window (e.g. 24h). It does not affect the Production or Mill panels.
 
 ---
 
@@ -104,6 +106,8 @@ Placeholder for future AI/ML features. Displays illustrative data only — no re
 ```
 
 Selects a window relative to the current time. Longer ranges are automatically downsampled to keep charts fast (e.g. 7d = 1 point per 5 min; 6M = 1 point per 2 h).
+
+> These global controls drive the **Production** and **Mill** panels. The **Pellet Silo** and **Dispatch** panels on the Detail page have their own separate range selector — see [Section 4](#4-page-2--detail-charts).
 
 ### Custom Date Range
 

@@ -23,11 +23,13 @@
 
 | 分类 | 卡片 1 | 卡片 2 | 卡片 3 | 卡片 4 |
 |------|--------|--------|--------|--------|
-| Production | Daily Output (t) | Hourly Rate (t/h) | Mills Running (x/3) | Totaliser (t) |
+| Production | Daily Output (t) | Hourly Rate (t/h) | Mills Running (x/3) | YTD Output (t) |
 | Mill Status | Mill 1 Amps (A) | Mill 2 Amps (A) | Mill 3 Amps (A) | — |
 | Pellet Silo | Silo 1 (% 液位罐) | Silo 2 (% 液位罐) | Silo 3 (% 液位罐) | — |
 | Dispatch (行1) | Daily Bagging (t) | Daily Truck (t) | — | — |
-| Dispatch (行2) | Bagging Totaliser (t) | Truck Totaliser (t) | — | — |
+| Dispatch (行2) | YTD Bagging (t) | YTD Truck (t) | — | — |
+
+> **YTD（本年累计）**: Production / Bagging / Truck 的第二行卡片显示**当前日历年**的累计产量,而非历史全部累计。因数据是累计计数器,年产量 = **当年最后一个值 − 前一年最后一个值** (`get_year_total`);当前年 = 最新值 − 上一年末值(即 1月1日→今天)。到 2027 年自动显示 2027 的 YTD。计数器跨年重置时回退年内 last−first,仍为负则显示"—"。Overview 页固定显示当前年（无年份选择）。
 
 **Pellet Silo 显示**: 使用 `_ov_tank()` 液位罐组件（与 Dry Silo 相同风格），Fuel_Level 吨数 → 百分比换算。
 
@@ -43,7 +45,7 @@
 
 **顶栏**:
 - Land Energy Logo + 工厂名 "Girvan Pellet Plant"
-- Date Range Picker（默认自动适配数据库实际时间范围）
+- Date Range Picker（首屏默认显示**最近 24 小时**以加快加载；picker 上下限仍按数据库实际范围；可手动选任意区间）
 - 🌐 语言切换器 (EN | 中 | FR)
 - ⚙️ 阈值设置按钮（打开 Modal/Sidebar）
 - Grafana 风格时间控制: 快速范围 (1m/30m/6h/24h/7d/1M/6M) + 自动刷新 (Off/5s/30s/1min)
@@ -61,8 +63,8 @@
 
 #### Panel 1: Production & Throughput（产量与生产率）
 - **趋势线**: `Total tons passed belt weigher (hour)` — 含 20 t/h 水平目标参考线
-- **累计产量大数卡**: Totaliser 差值计算的班次/日产量
-- **Pellet Silo 液位罐 (×3)**: 百分比 tank overlay（仿 Dry Silo 风格），带阈值颜色
+- **YTD Output 大数卡 + 年份下拉**: 显示选定年份的累计产量 (`get_year_total` = 当年末 − 前一年末)，默认当前年；下拉**只列有产量数据的年份**，历史年份查看整年总量
+- **Pellet Silo 液位罐 (×3)**: 百分比 tank overlay（仿 Dry Silo 风格），带阈值颜色（全局范围）
 
 #### Panel 2: Mill Health & Load（磨机健康与负载）
 - **3 台磨机状态指示灯**: Running (绿) / Stopped (灰)，基于 Load Amps > 50A
@@ -72,12 +74,14 @@
 - **Roller Temperature L/R**: 左/右各一图 (各 3 线)，操作员可对比 L vs R 差异
 - **Mill Energy 趋势**: 3 台磨机的累计 kWh 折线图（替换旧的 kWh/t，BG 提供累计值非比率）
 
+> **独立时间范围**: Pellet Silo 和 Dispatch 三个趋势图共用一个独立的时间范围下拉选择器（`sd-range-select`，默认 **6M**，选项 24h/7d/1M/6M/1Y），与顶栏全局时间范围（控制 Production/Mill）分离。运营方希望 Mill 看短周期（如 24h），而料仓/出货看更长周期趋势。
+
 #### Panel 3: Pellet Silo（颗粒料仓）— 新增
-- **Silo Level 时间趋势**: Silo 1/2/3 百分比折线图 + 背景阈值色带 (红/黄/绿/黄/红)
-- **Infeed Totaliser 趋势**: 各仓累计进料吨数折线图 (×3)
+- **Silo Level 时间趋势**: Silo 1/2/3 百分比折线图 + 背景阈值色带 (红/黄/绿/黄/红)（独立范围）
+- **Infeed Totaliser 趋势**: 各仓累计进料吨数折线图 (×3)（独立范围）
 
 #### Panel 4: Dispatch（出货）— 新增
-- **累计趋势图**: Bagging + Truck Totaliser 折线图，2 条线
+- **累计趋势图**: Bagging + Truck Totaliser 折线图，2 条线（独立范围）
 
 **~~Panel 3-6 已移除~~**: Dryer/Quality/CHP/Downtime（BG 未覆盖，待 BG 增加数据点后恢复）
 

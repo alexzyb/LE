@@ -736,6 +736,44 @@ body {
     animation: pulse-dot 1.5s ease-in-out infinite;
 }
 
+/* Silo & Dispatch independent range bar */
+.sd-range-bar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    margin: 4px 0 8px 0;
+}
+
+.sd-range-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--le-subtext);
+}
+
+.sd-range-select {
+    width: 90px !important;
+    display: inline-block !important;
+    font-size: 11px !important;
+    padding: 2px 6px !important;
+    background-color: var(--le-accent) !important;
+    color: var(--le-text) !important;
+    border-color: var(--le-border) !important;
+}
+
+/* YTD year selector (Detail page Production panel) — compact, inline */
+.ytd-year-select {
+    width: 78px;
+    min-width: 78px;
+    font-size: 11px;
+}
+.ytd-year-select .Select-control,
+.ytd-year-select .Select-menu-outer {
+    min-height: 24px;
+    font-size: 11px;
+}
+
 @keyframes pulse-dot {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.3; }

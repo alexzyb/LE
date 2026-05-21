@@ -23,8 +23,8 @@ Open **http://localhost:8050** in your browser.
 
 | Page | Route | Description |
 |------|-------|-------------|
-| Overview | `/` | 14 large-font KPI cards + Pellet Silo tank visuals — at-a-glance plant status |
-| Detail | `/ops` | 4 operational panels (Production, Mill Health, Pellet Silo, Dispatch) + 11 charts _(P2 KPI strip is LEGACY — removed in Phase 8)_ |
+| Overview | `/` | 14 large-font KPI cards (incl. Year-to-Date Output/Bagging/Truck) + Pellet Silo tank visuals — at-a-glance plant status |
+| Detail | `/ops` | 4 operational panels (Production, Mill Health, Pellet Silo, Dispatch) + 11 charts. YTD Output box with year selector; Silo & Dispatch have an independent time-range selector _(P2 KPI strip is LEGACY — removed in Phase 8)_ |
 | AI Analytics | `/ai` | Placeholder panels for future ML features (Production Forecast, Fault Prediction, Anomaly Detection, Root Cause Analysis) |
 
 ## Project Structure
@@ -74,6 +74,8 @@ LE/
 - **Real-time Colour Coding** — Green/Yellow/Red indicators on KPIs and charts
 - **4 Operational Panels** — Production & Throughput, Mill Health & Load, Pellet Silo, Dispatch
 - **Grafana-Style Time Control** — Quick range buttons (1m / 30m / 6h / 24h / 7d / 1M / 6M) + auto-refresh (Off / 5s / 30s / 1min) with pulsing indicator
+- **Year-to-Date Totalisers** — Production / Bagging / Truck show current-year accumulation (auto-rolls each year); Detail page has a year selector for historical full-year totals
+- **Independent Panel Range** — Pellet Silo & Dispatch have their own time-range selector (default 6M) separate from the global range driving Production/Mill
 - **Pellet Silo Tank Level** — CSS liquid-fill visual for silo percentage on Overview page
 - **BG Live Data Pipeline** — Incremental CSV ingestion with 30s resampling and UPSERT
 

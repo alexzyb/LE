@@ -16,8 +16,8 @@
 - **旧数据 (Phase 0-7, 已弃用)**: `data/Shift_Protocol_date_time_merged.csv`（64 列宽表，745 行 Demo 快照）
   - `init_db.py` 和 `data/` 目录保留但不再使用
 - **BG 当前覆盖**: 17/52 列（Mill + Production + Pellet Silo），Dryer/Quality/CHP 待 BG 后续增加
-- **P1 KPI 总览** (`/`): Production 4 卡片 + Mill Status 3 卡片 + Pellet Silo 3 液位罐 + Dispatch 4 卡片 (差值+原始值各2)
-- **P2 详细运营** (`/ops`): 4个分区面板 (Production/Mill/Pellet Silo/Dispatch)。~~KPI卡片行~~ LEGACY（Phase 8 移除，代码保留注释）
+- **P1 KPI 总览** (`/`): Production 4 卡片 + Mill Status 3 卡片 + Pellet Silo 3 液位罐 + Dispatch 4 卡片 (Daily + YTD 各2)。Production/Bagging/Truck 第二行为 **YTD 本年累计** (`get_year_total`，每年自动滚动)
+- **P2 详细运营** (`/ops`): 4个分区面板 (Production/Mill/Pellet Silo/Dispatch)。Production 面板 YTD Output 框带**年份下拉**(看历史整年总量)；**Pellet Silo + Dispatch 有独立时间范围选择器**(默认6M，与全局范围分离)。~~KPI卡片行~~ LEGACY（Phase 8 移除，代码保留注释）
 - **P3 AI Placeholder** (`/ai`): 4 个伪数据占位面板 + "Coming Soon"
 - **三语**: EN / 中文 / Français 顶栏切换器（见 `docs/i18n-spec.md`）
 - **阈值可调**: 4 个有效参数 (Amps/Belt Weigher/Feeder/Pellet Silo) 🟢🟡🔴 颜色边界，⚙️ Settings UI 调整（见 `docs/thresholds.md`）

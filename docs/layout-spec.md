@@ -18,8 +18,8 @@
 │                                                                  │
 │  ── PRODUCTION ─────────────────────────────────────────────────  │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐        │
-│  │Daily Out │  │  Rate    │  │  Mills   │  │Totaliser │        │
-│  │  324 t   │  │ 13.8t/h🟡│  │  3/3  🟢 │  │640,350 t │ (白色)  │
+│  │Daily Out │  │  Rate    │  │  Mills   │  │YTD Output│        │
+│  │  324 t   │  │ 13.8t/h🟡│  │  3/3  🟢 │  │ 42,180 t │ (白色)  │
 │  └──────────┘  └──────────┘  └──────────┘  └──────────┘        │
 │                                                                  │
 │  ── MILL STATUS ────────────────────────────────────────────────  │
@@ -43,9 +43,9 @@
 │  │  12 t    │  │  28 t    │                                      │
 │  └──────────┘  └──────────┘                                      │
 │  ┌──────────┐  ┌──────────┐                                      │
+│  │ YTD      │  │ YTD      │                                      │
 │  │ Bagging  │  │ Truck    │                                      │
-│  │Totaliser │  │Totaliser │                                      │
-│  │551,194 t │  │203,800 t │  (白色数值)                           │
+│  │ 38,400 t │  │ 14,250 t │  (白色数值)                           │
 │  └──────────┘  └──────────┘                                      │
 │                                                                  │
 └──────────────────────────────────────────────────────────────────┘
@@ -59,7 +59,7 @@
 | Daily Output | Totaliser 累计差值（选定范围最后一天） | t | 无颜色 |
 | Hourly Rate | `Total tons passed belt weigher (hour)` 最新值 | t/h | `belt_weigher_hourly` 阈值 |
 | Mills Running | 3 台 Amps > 50A 计数 | x/3 | 3=🟢 1-2=🟡 0=🔴 |
-| Totaliser | `Total Pellets passed belt weigher (cumlative)` 最新原始值 | t | **白色** (`CS["text"]`) |
+| YTD Output | `Total Pellets passed belt weigher (cumlative)` 当前年累计 (`get_year_total(col, 今年)` = 当前年最新值 − 上一年末值) | t | **白色** (`CS["text"]`) |
 
 **Mill Status (3 张 `_ov_card`)**:
 | 卡片 | 数据来源 | 单位 | 颜色 |
@@ -80,8 +80,8 @@
 |------|----------|------|------|
 | Daily Bagging | `_bagging_totaliser` 当日差值（同 Daily Output 逻辑） | t | 无颜色 |
 | Daily Truck | `_truck_totaliser` 当日差值（同 Daily Output 逻辑） | t | 无颜色 |
-| Bagging Totaliser | `_bagging_totaliser` 最新原始值 | t | **白色** (`CS["text"]`) |
-| Truck Totaliser | `_truck_totaliser` 最新原始值 | t | **白色** (`CS["text"]`) |
+| YTD Bagging | `_bagging_totaliser` 当前年累计 (`get_year_total`) | t | **白色** (`CS["text"]`) |
+| YTD Truck | `_truck_totaliser` 当前年累计 (`get_year_total`) | t | **白色** (`CS["text"]`) |
 
 ---
 
@@ -102,8 +102,9 @@
 │ [Tab: Production] [Mill Health] [Pellet Silo] [Dispatch]         │
 ├──────────────────────────────────────────────────────────────────┤
 │ ┌─ Production & Throughput ──────────────────────────────────┐   │
-│ │ [Dual-axis: Rate t/h (L,green)             │ Totaliser     │   │
-│ │           + Totaliser t (R,cyan,solid)]     │  640,350 t   │   │
+│ │ [Dual-axis: Rate t/h (L,green)             │ YTD Output    │   │
+│ │           + Totaliser t (R,cyan,solid)]     │  42,180 t    │   │
+│ │                                             │ Year:[2026▼] │   │
 │ │                                             │──────────────│   │
 │ │                                             │ [Tank×3:     │   │
 │ │                                             │  Silo % ]    │   │
@@ -115,6 +116,7 @@
 │ │ [Line: Left Roller Temp]    │ [Line: Right Roller Temp]     │   │
 │ │ [Line: Mill Energy kWh]     │                               │   │
 │ └────────────────────────────────────────────────────────────┘   │
+│              Silo & Dispatch Range: [24h|7d|1M|6M▼|1Y]            │
 │ ┌─ Pellet Silo ──────────────────────────────────────────────┐   │
 │ │ [Line: Silo 1/2/3 % trend + threshold bands]              │   │
 │ │ [Line: Infeed Totaliser trend ×3]                          │   │
@@ -139,16 +141,19 @@
 | 面板 | 图表 | 类型 | 数据列 |
 |------|------|------|--------|
 | Production | `fig_production_lines` | 双轴折线图 | 左轴: Rate t/h (绿), 右轴: Totaliser t (青,实线) |
-| Production | `fig_pellet_silos` | 液位罐 (tank overlay) | Silo 1/2/3 → % |
+| Production | YTD Output 框 + 年份下拉 | KPI + `dcc.Dropdown` | `get_year_total(col, 选定年)` = 当年末值 − 前一年末值；下拉**只列有产量数据的年份**；当前年=最新值−上年末值(YTD)，历史年=整年总量 |
+| Production | `fig_pellet_silos` | 液位罐 (tank overlay) | Silo 1/2/3 → %（全局范围） |
 | Mill | `fig_mill_gauges` | 半圆仪表盘 ×3 | Mill 1/2/3 Amps |
 | Mill | `fig_mill_amps_trend` | 折线图 (×3 线) | Mill 1/2/3 Amps |
 | Mill | `fig_mill_feeder` | 折线图 (×3 线) | Mill 1/2/3 Feeder % |
 | Mill | `fig_roller_temp_left` | 折线图 (×3 线) | Mill 1/2/3 Left Roller Temp |
 | Mill | `fig_roller_temp_right` | 折线图 (×3 线) | Mill 1/2/3 Right Roller Temp |
 | Mill | `fig_mill_energy` | 折线图 (×3 线) | Mill 1/2/3 累计 kWh |
-| Pellet Silo | `fig_silo_level_trend` | 折线图 + 阈值色带 | Silo 1/2/3 % |
-| Pellet Silo | `fig_silo_infeed_trend` | 折线图 (×3 线) | Silo 1/2/3 Infeed |
-| Dispatch | `fig_dispatch_trend` | 折线图 (2 线) | Bagging + Truck |
+| Pellet Silo | `fig_silo_level_trend` | 折线图 + 阈值色带 | Silo 1/2/3 %（**独立范围** sd_range） |
+| Pellet Silo | `fig_silo_infeed_trend` | 折线图 (×3 线) | Silo 1/2/3 Infeed（**独立范围**） |
+| Dispatch | `fig_dispatch_trend` | 折线图 (2 线) | Bagging + Truck（**独立范围**） |
+
+> **独立时间范围**: Pellet Silo 和 Dispatch 三个趋势图共用一个独立下拉选择器 (`sd-range-select`，默认 6M，选项 24h/7d/1M/6M/1Y)，与顶栏全局时间范围（控制 Production/Mill）分离。Production 面板的 Tank 液位罐仍用全局范围。
 
 ---
 
@@ -211,10 +216,10 @@
 - [ ] P3 AI 占位 (`/ai`) 可访问
 
 ### P1 KPI 总览
-- [ ] Production 组: 4 张大字 KPI 卡片 (Daily Output, Rate, Mills, Cumulative)
+- [ ] Production 组: 4 张大字 KPI 卡片 (Daily Output, Rate, Mills, **YTD Output**=当前年累计)
 - [ ] Mill Status 组: 3 张 KPI 卡片 (Mill 1/2/3 Amps)
 - [ ] Pellet Silo 组: 3 个百分比液位罐 (tank visual, 非吨数条形图)
-- [ ] Dispatch 组: 3 张 KPI 卡片 (Bagging, Truck, Total)
+- [ ] Dispatch 组: 4 张 KPI 卡片 (Daily Bagging/Truck + **YTD Bagging/Truck**)
 - [ ] KPI 值字体 >= 52px，醒目可读
 - [ ] 阈值颜色正确 (Rate/Mills/Amps/Silo Level)
 - [ ] 时间范围联动刷新所有卡片
@@ -235,6 +240,13 @@
 - [ ] Production 趋势只有 Belt Weigher 一条线（无 Dryer Out Feed）
 - [ ] Mill 图表 3 台 Mill 颜色区分清晰
 - [ ] Dispatch 趋势 Bagging + Truck 两条线
+
+### P2 YTD + 独立时间范围
+- [ ] Production 面板 YTD Output 框带年份下拉，默认当前年
+- [ ] 选历史年份显示该年整年总量（1月-12月）
+- [ ] Silo & Dispatch 独立范围下拉默认 6M (选项 24h/7d/1M/6M/1Y)
+- [ ] 改变独立范围只影响 Silo/Dispatch 三图，不影响 Mill/Production
+- [ ] 切换年份/范围后自动刷新仍正常工作
 
 ### 阈值面板
 - [ ] 可打开设置面板

@@ -6,6 +6,7 @@ Run:  python src/app.py   →   http://localhost:8050
 
 import sqlite3
 import sys
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -66,6 +67,26 @@ def _latest_val(df, col):
         return None
     vals = df[col].dropna()
     return float(vals.iloc[-1]) if len(vals) > 0 else None
+
+
+# Quick-range key → (start, end) ISO strings, anchored at the real current time.
+_RANGE_DELTAS = {
+    "1m":  timedelta(minutes=1),
+    "30m": timedelta(minutes=30),
+    "6h":  timedelta(hours=6),
+    "24h": timedelta(hours=24),
+    "7d":  timedelta(days=7),
+    "1M":  timedelta(days=30),
+    "6M":  timedelta(days=182),
+    "1Y":  timedelta(days=365),
+}
+
+
+def _range_to_dates(key, default="6M"):
+    anchor = datetime.now()
+    delta  = _RANGE_DELTAS.get(key) or _RANGE_DELTAS[default]
+    return ((anchor - delta).strftime("%Y-%m-%dT%H:%M:%S"),
+            anchor.strftime("%Y-%m-%dT%H:%M:%S"))
 
 
 def threshold_color(key, value):
@@ -439,12 +460,13 @@ def overview_layout(lang, start_date, end_date, theme="dark"):
         return _latest_val(df, col)
 
     # ── PRODUCTION ────────────────────────────────────────────────────────────
+    cur_year  = datetime.now().year
     cum_col   = "Total Pellets passed belt weigher (cumlative)"
     # Use raw 30s data (no resampling) to avoid coarse-bucket bias:
     # wider resample windows inflate vals.iloc[0], shrinking the delta.
     daily_out = _data.get_daily_delta(cum_col)
 
-    totaliser_raw = _lv(cum_col)
+    ytd_output = _data.get_year_total(cum_col, cur_year)
 
     rate     = _lv("Total tons passed belt weigher (hour)")
     rate_clr = threshold_color("belt_weigher_hourly", rate)
@@ -461,7 +483,7 @@ def overview_layout(lang, start_date, end_date, theme="dark"):
             _ov_card(t("ov_daily_output", lang), _fmt(daily_out, 0), "t", "white", theme),
             _ov_card(t("ov_rate",         lang), _fmt(rate),         "t/h", rate_clr, theme),
             _ov_card(t("ov_mills",        lang), f"{mills_ok}/3",    "",    mills_clr, theme),
-            _ov_card(t("ov_cumulative",   lang), _fmt(totaliser_raw, 0), "t", "white", theme),
+            _ov_card(t("ov_cumulative",   lang), _fmt(ytd_output, 0), "t", "white", theme),
         ]),
     ], className="mb-2")
 
@@ -504,8 +526,8 @@ def overview_layout(lang, start_date, end_date, theme="dark"):
     # Use raw 30s data (no resampling) — same fix as Daily Output.
     bagging_daily = _data.get_daily_delta("_bagging_totaliser")
     truck_daily   = _data.get_daily_delta("_truck_totaliser")
-    bagging_raw   = _lv("_bagging_totaliser")
-    truck_raw     = _lv("_truck_totaliser")
+    bagging_ytd   = _data.get_year_total("_bagging_totaliser", cur_year)
+    truck_ytd     = _data.get_year_total("_truck_totaliser", cur_year)
 
     dispatch_section = html.Div([
         html.H6(t("cat_dispatch", lang), className="overview-section-title"),
@@ -514,8 +536,8 @@ def overview_layout(lang, start_date, end_date, theme="dark"):
             _ov_card(t("ov_truck_delta",   lang), _fmt(truck_daily,   0), "t", "white", theme),
         ]),
         dbc.Row([
-            _ov_card(t("ov_bagging_total", lang), _fmt(bagging_raw, 0), "t", "white", theme),
-            _ov_card(t("ov_truck_total",   lang), _fmt(truck_raw,   0), "t", "white", theme),
+            _ov_card(t("ov_bagging_total", lang), _fmt(bagging_ytd, 0), "t", "white", theme),
+            _ov_card(t("ov_truck_total",   lang), _fmt(truck_ytd,   0), "t", "white", theme),
         ]),
     ], className="mb-2")
 
@@ -524,19 +546,40 @@ def overview_layout(lang, start_date, end_date, theme="dark"):
 
 # ─── Detailed ops page (P2) ──────────────────────────────────────────────────
 
-def page1_layout(lang, start_date, end_date, theme="dark"):
-    """P2: Detailed ops — 4 panels (Production / Mill / Pellet Silo / Dispatch)."""
+def page1_layout(lang, start_date, end_date, theme="dark",
+                 ytd_year=None, sd_range="6M"):
+    """P2: Detailed ops — 4 panels (Production / Mill / Pellet Silo / Dispatch).
+
+    Mill/Production use the global range; Silo + Dispatch trends use sd_range.
+    """
     df = _data.get_live_df(start_date, end_date)
     cs = _cs(theme)
 
-    # Raw Totaliser value (latest reading)
-    cum_col       = "Total Pellets passed belt weigher (cumlative)"
-    totaliser_val = None
-    if not df.empty and cum_col in df.columns:
-        vals = df[cum_col].dropna()
-        if len(vals) > 0:
-            totaliser_val = round(float(vals.iloc[-1]), 0)
-    totaliser_str = f"{totaliser_val:,.0f}" if totaliser_val is not None else "\u2014"
+    # Independent range for Silo + Dispatch trend charts.
+    # These sources are hourly — query only their columns (non-null rows) so a
+    # long range stays cheap instead of dragging in every 30s Mill row.
+    sd_start, sd_end = _range_to_dates(sd_range)
+    _SD_COLS = [
+        "Pellet Silo Level 1 Readout", "Pellet Silo Level 2 Readout",
+        "Pellet Silo Level 3 Readout",
+        "_silo1_infeed_totaliser", "_silo2_infeed_totaliser",
+        "_silo3_infeed_totaliser",
+        "_bagging_totaliser", "_truck_totaliser",
+    ]
+    df_sd = _data.get_sparse_df(_SD_COLS, sd_start, sd_end)
+
+    # YTD output \u2014 only offer years that actually have production data, so the
+    # dropdown never shows a "\u2014" year (e.g. belt weigher has no 2021-2023 data).
+    cum_col   = "Total Pellets passed belt weigher (cumlative)"
+    year_vals = {y: _data.get_year_total(cum_col, y)
+                 for y in _data.get_available_years()}
+    years     = [y for y in year_vals if year_vals[y] is not None] \
+                or [datetime.now().year]
+    ytd_year  = ytd_year or datetime.now().year
+    if ytd_year not in years:
+        ytd_year = years[-1]          # latest year that has data
+    ytd_val   = year_vals.get(ytd_year)
+    totaliser_str = f"{ytd_val:,.0f}" if ytd_val is not None else "\u2014"
 
     panel_items = [
         (t("panel_production",  lang), "sec-production"),
@@ -556,22 +599,31 @@ def page1_layout(lang, start_date, end_date, theme="dark"):
             dbc.Col(G(_charts.fig_production_lines(df, theme), height=260), md=8),
             dbc.Col([
                 html.Div([
-                    html.P("Data Totaliser",
-                           style={"fontSize": "12px", "color": cs["subtext"],
-                                  "textTransform": "uppercase", "letterSpacing": "0.8px",
-                                  "margin": "0 0 4px 0"}),
+                    html.Div([
+                        html.Span(t("ov_cumulative", lang),
+                                  style={"fontSize": "10px", "color": cs["subtext"],
+                                         "textTransform": "uppercase",
+                                         "letterSpacing": "0.6px"}),
+                        dcc.Dropdown(
+                            id="ytd-year-select",
+                            options=[{"label": str(y), "value": y} for y in years],
+                            value=ytd_year, clearable=False, searchable=False,
+                            className="ytd-year-select",
+                        ),
+                    ], style={"display": "flex", "alignItems": "center",
+                              "justifyContent": "center", "gap": "6px"}),
                     html.Div([
                         html.Span(totaliser_str,
-                                  style={"fontSize": "48px", "fontWeight": "700",
+                                  style={"fontSize": "30px", "fontWeight": "700",
                                          "fontFamily": "Roboto Mono, monospace",
                                          "color": cs["text"]}),
-                        html.Span("\u202ft", style={"fontSize": "18px",
+                        html.Span("\u202ft", style={"fontSize": "13px",
                                                     "color": cs["subtext"]}),
                     ]),
-                ], style={"textAlign": "center", "padding": "16px 8px",
+                ], style={"textAlign": "center", "padding": "6px 6px",
                           "background": cs["bg"], "borderRadius": "4px",
-                          "marginBottom": "8px", "border": f"1px solid {cs['border']}"}),
-                G(_charts.fig_pellet_silos(df, theme), height=180),
+                          "marginBottom": "6px", "border": f"1px solid {cs['border']}"}),
+                G(_charts.fig_pellet_silos(df, theme), height=200),
             ], md=4),
         ], className="g-2"),
     ], "sec-production")
@@ -591,21 +643,33 @@ def page1_layout(lang, start_date, end_date, theme="dark"):
         G(_charts.fig_mill_energy(df, theme), height=200),
     ], "sec-mill")
 
+    # Independent range selector for Silo + Dispatch panels
+    sd_range_bar = html.Div([
+        html.Span(t("sd_range_label", lang), className="sd-range-label"),
+        dbc.Select(
+            id="sd-range-select",
+            options=[{"label": k, "value": k}
+                     for k in ["24h", "7d", "1M", "6M", "1Y"]],
+            value=sd_range, size="sm", className="sd-range-select",
+        ),
+    ], className="sd-range-bar")
+
     # ── Panel 3: Pellet Silo ──────────────────────────────────────────────────
     silo_panel = section_panel(t("panel_pellet_silo", lang), [
-        G(_charts.fig_silo_level_trend(df, theme), height=280),
-        G(_charts.fig_silo_infeed_trend(df, theme), height=220),
+        G(_charts.fig_silo_level_trend(df_sd, theme), height=280),
+        G(_charts.fig_silo_infeed_trend(df_sd, theme), height=220),
     ], "sec-silo")
 
     # ── Panel 4: Dispatch ─────────────────────────────────────────────────────
     dispatch_panel = section_panel(t("panel_dispatch", lang), [
-        G(_charts.fig_dispatch_trend(df, theme), height=260),
+        G(_charts.fig_dispatch_trend(df_sd, theme), height=260),
     ], "sec-dispatch")
 
     return html.Div([
         panel_nav,
         prod_panel,
         mill_panel,
+        sd_range_bar,
         silo_panel,
         dispatch_panel,
     ])
@@ -661,9 +725,9 @@ def page2_layout(lang, theme="dark"):
 # ─── Startup: detect DB data range for date picker defaults ──────────────────
 _db_min, _db_max = _data.get_db_time_range()
 _picker_start = _db_min.strftime("%Y-%m-%d") if _db_min else "2022-01-01"
-_picker_end   = _db_max.strftime("%Y-%m-%d") if _db_max else "2026-12-31"
+_picker_end   = _db_max.strftime("%Y-%m-%d") if _db_max else datetime.now().strftime("%Y-%m-%d")
 _picker_min   = _picker_start
-_picker_max   = _picker_end
+_picker_max   = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
 
 # ─── Static app layout ────────────────────────────────────────────────────────
 
@@ -673,8 +737,11 @@ app.layout = html.Div([
     dcc.Store(id="store-theme", data="dark", storage_type="local"),
     dcc.Store(id="store-thresh-ver", data=0),
     dcc.Store(id="store-time-mode",
-              data={"mode": "custom", "quick_range": None},
+              data={"mode": "quick", "quick_range": "24h"},
               storage_type="memory"),
+    dcc.Store(id="store-ytd-year", data=datetime.now().year,
+              storage_type="memory"),
+    dcc.Store(id="store-sd-range", data="6M", storage_type="memory"),
     dcc.Interval(id="auto-refresh-interval", interval=60000,
                  n_intervals=0, disabled=True),
     dcc.Location(id="url", refresh=False),
@@ -928,16 +995,19 @@ def highlight_active_qr(time_mode):
      Input("btn-apply",             "n_clicks"),
      Input("store-thresh-ver",      "data"),
      Input("store-time-mode",       "data"),
+     Input("store-ytd-year",        "data"),
+     Input("store-sd-range",        "data"),
      Input("auto-refresh-interval", "n_intervals")],
     [State("date-picker", "start_date"),
      State("date-picker", "end_date")],
 )
-def render_page(pathname, lang, theme, _n, _tv, time_mode, _n_int,
-                start_date, end_date):
-    from datetime import datetime, timedelta
+def render_page(pathname, lang, theme, _n, _tv, time_mode, ytd_year, sd_range,
+                _n_int, start_date, end_date):
     lang = lang or DEFAULT_LANG
     theme = theme or "dark"
     time_mode = time_mode or {"mode": "custom", "quick_range": None}
+    ytd_year = ytd_year or datetime.now().year
+    sd_range = sd_range or "6M"
 
     if time_mode["mode"] == "quick" and time_mode.get("quick_range"):
         # Anchor = real current time (not DB max)
@@ -960,10 +1030,28 @@ def render_page(pathname, lang, theme, _n, _tv, time_mode, _n_int,
 
 
     if pathname == "/ops":
-        return page1_layout(lang, start_date, end_date, theme)
+        return page1_layout(lang, start_date, end_date, theme, ytd_year, sd_range)
     if pathname == "/ai":
         return page2_layout(lang, theme)
     return overview_layout(lang, start_date, end_date, theme)
+
+
+@app.callback(
+    Output("store-ytd-year", "data"),
+    Input("ytd-year-select", "value"),
+    prevent_initial_call=True,
+)
+def update_ytd_year(year):
+    return year or datetime.now().year
+
+
+@app.callback(
+    Output("store-sd-range", "data"),
+    Input("sd-range-select", "value"),
+    prevent_initial_call=True,
+)
+def update_sd_range(rng):
+    return rng or "6M"
 
 
 @app.callback(

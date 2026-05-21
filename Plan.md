@@ -119,6 +119,23 @@
 - [x] **仅改 `src/data.py` 一个文件**，无需重新导入数据，重启 `app.py` 即生效
 - [ ] 待办：发邮件给 Christian，请他修复 BG WinCC 服务器时区（夏令时未应用）
 
+### Phase 8m — Year-to-Date Totalisers + Silo/Dispatch 独立时间范围 ✅ (2026-05-21 完成)
+- [x] **需求 (Land Energy 反馈)**: ①Totaliser 显示全部历史累计无意义→改为 YTD 本年累计 ②Silo/Dispatch 趋势想看更长周期，独立于 Mill 的全局范围
+- [x] **新数据函数** (`src/data.py`): `get_year_total(col, year)`（年末值−年初值，两条 LIMIT-1 SQL，当前年用 now() 当前年末用 12-31）+ `get_available_years()`
+- [x] **Overview YTD** (`overview_layout`): Production `ov_cumulative` + Dispatch `ov_bagging_total`/`ov_truck_total` 三卡改用 `get_year_total(col, 今年)`；Daily 卡片不变
+- [x] **Detail YTD + 年份选择器** (`page1_layout`): "Data Totaliser" 静态框→`t("ov_cumulative")` + `get_year_total(col, 选定年)`；新增 `dcc.Dropdown(id="ytd-year-select")`（默认当前年，历史年份=整年总量）
+- [x] **Silo/Dispatch 独立范围**: `page1_layout` 新增第二个 df_sd（`_range_to_dates(sd_range)`，新增 1Y 档）；`fig_silo_level_trend`/`fig_silo_infeed_trend`/`fig_dispatch_trend` 改用 df_sd；面板前插入 `sd-range-bar` + `dbc.Select(id="sd-range-select")`（默认6M，选项24h/7d/1M/6M/1Y）；Tank 液位罐仍用全局 df
+- [x] **性能修复 (关键)**: 初版 df_sd 用 `get_live_df()` → 对长范围(6M/1Y) `SELECT *` 把所有 30s Mill 行也拖进来，VM 上极慢（点 1m 也慢，因 df_sd 照跑 6M）。新增 `data.get_sparse_df(cols, start, end)`：只查 Silo/Dispatch 那 8 列 + 只取非空行（数据本是每小时一条），1Y ≈ 几千行无需降采样。`page1_layout` 改用 `get_sparse_df`。本地 1Y 渲染 0.2-0.4s
+- [x] **首屏默认范围改 24h**: `store-time-mode` 默认从 `{custom, None}`（=全量 DB 范围，VM 上几年数据极慢）改为 `{quick, "24h"}`，首屏只查最近 24 小时，秒开；24h 按钮自动高亮；picker 上下限不变
+- [x] **YTD 计算修正 (关键)**: 累计计数器的年产量 = **当年最后值 − 前一年最后值**（不是当年内 last−first）。当前年(2026) = 最新值 − 2025年末值（即 1月1日→今天）。`get_year_total` 重写：end=年内最后值, baseline=年初之前最后值（前一年末），最早年份无 baseline 时回退年内 first；新增 `_clean_sql()` 按 column_map 清洗规则过滤异常（non_negative→`>=0`）；**计数器跨年重置保护**：跨年 delta<0 时回退年内 delta，仍<0 则返回 None（样本数据 bagging 2021→2022 计数器从 9588 跌到 6886 即重置案例）
+- [x] **YTD 框紧凑化**: 字号 48→30px、padding 16→6px、年份下拉移到标签同行(inline 78px)，腾出空间让下方 Pellet Silo 液位罐(180→200px)完整显示
+- [x] **年份下拉只列有数据的年份**: VM 上 belt weigher 产量只有 2024-2026，旧版下拉列全部年份(2021-2026)，选 2021/22/23 显示"—"像 bug。改为 `page1_layout` 预计算各年 `get_year_total`，下拉只列非 None 年份；store 年份不在列表时回退到最新有效年。**验证**: 修正后 VM 年产量 2024=67k/2025=92.5k/2026=35k(YTD)，比旧公式 83万 合理约 5 倍(符合 16-24t/h 工厂年产)
+- [x] **Stores + 回调**: 新增 `store-ytd-year` / `store-sd-range`；render_page 加 2 Input 并传给 page1_layout；新增 `update_ytd_year` / `update_sd_range` 回调；模块级 `_range_to_dates` 助手
+- [x] **翻译**: `ov_cumulative`→YTD Output/本年产量/Production YTD；`ov_bagging_total`→YTD Bagging/本年包装/Ensachage YTD；`ov_truck_total`→YTD Truck/本年装车/Camion YTD；新增 `sd_range_label` + `ytd_year`（三语）
+- [x] **CSS**: `.sd-range-bar` / `.sd-range-label` / `.sd-range-select` / `.ytd-year-select`
+- [x] **文档同步**: layout-spec(P1/P2 wireframe+KPI表+图表清单+验收) / scope-and-design(KPI表+面板描述+YTD口径说明) / i18n-spec / user-guide(§3/§4/§6) / README / CLAUDE.md
+- [x] `src/charts.py` 无需改（趋势图接收哪个 df 画哪个）
+
 ### Phase 8d — 生产部署
 - [x] Windows VM + SQLite (默认) + 本地 BG CSV 目录（见 Phase 8h）
 - [ ] 验证 Dashboard 在 VM 上显示所有 Mill/Amps/Energy 数据
@@ -163,3 +180,4 @@
 | 2026-04-09 | 8j | **Production Rate 异常值过滤**: column_map.py Production 清洗规则 non_negative→range[0,50] t/h（正常11-12 t/h，BG偶现30000+错值→NULL）; 文档同步: phase8-live-data.md §4清洗表 + thresholds.md Belt Weigher + Plan.md 已知风险#7 |
 | 2026-04-10 | 8k | **日期选择器Bug修复**: DatePicker max_date_allowed 锁死在启动时DB最大日期→改为 now()+1day; 顶部新增 datetime/timedelta 导入; 仅改 app.py 一个文件 |
 | 2026-05-21 | 8l | **时间戳时区修复**: Dashboard 显示 UTC 时间，UK 用户看到比本地慢 2 小时（1h=BG时钟未应用BST，1h=UTC vs BST显示差）; 诊断: sync_timestamp_utc 正确实时，timestamp_utc 慢1h，确认BG侧问题; 修复: data.py get_live_df() 加 UTC→Europe/London 转换（zoneinfo 自动DST），差距缩至1h; 待Christian修复BG时钟后归零; 仅改 data.py |
+| 2026-05-21 | 8m | **YTD Totalisers + Silo/Dispatch 独立时间范围**: ①data.py 新增 get_year_total()/get_available_years() ②Overview Production/Bagging/Truck 三卡改 YTD 本年累计 ③Detail YTD 框 + 年份下拉(历史整年总量) ④Silo/Dispatch 三趋势图改用独立 df_sd + sd-range-select(默认6M/选项24h-1Y) ⑤新增 store-ytd-year/store-sd-range + 2回调 + _range_to_dates 助手 ⑥翻译 3 key 改 YTD + 新增 sd_range_label/ytd_year ⑦CSS ⑧全量文档同步(layout-spec/scope/i18n/user-guide/README/CLAUDE) |

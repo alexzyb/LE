@@ -19,7 +19,7 @@
 | P1 卡片 | Daily Output | 日产量 | Production du jour |
 | P1 卡片 | Hourly Rate | 小时产率 | D\u00e9bit horaire |
 | P1 卡片 | Mills Running | 磨机运行 | Broyeurs actifs |
-| P1 卡片 | Totaliser | 累计计数器 | Totaliseur |
+| P1 卡片 | YTD Output | 本年产量 | Production YTD |
 | **P1 Mill Status 卡片** | | | |
 | P1 卡片 | Mill 1 Amps | 压机1电流 | Courant presse 1 |
 | P1 卡片 | Mill 2 Amps | 压机2电流 | Courant presse 2 |
@@ -31,9 +31,11 @@
 | **P1 Dispatch 卡片** | | | |
 | P1 卡片 | Daily Bagging | 包装日产 | Ensachage du jour |
 | P1 卡片 | Daily Truck | 装车日产 | Camion du jour |
-| P1 卡片 | Bagging Totaliser | 包装计数器 | Totaliseur ensachage |
-| P1 卡片 | Truck Totaliser | 装车计数器 | Totaliseur camion |
+| P1 卡片 | YTD Bagging | 本年包装 | Ensachage YTD |
+| P1 卡片 | YTD Truck | 本年装车 | Camion YTD |
 | **P2 Detail 面板** | | | |
+| 控件 | Silo & Dispatch Range | 料仓与出货范围 | Plage Silo & Expédition |
+| 控件 | Year | 年份 | Année |
 | 面板 | Production & Throughput | 产量与生产率 | Production et d\u00e9bit |
 | 面板 | Mill Health & Load | 磨机健康与负载 | Sant\u00e9 et charge des broyeurs |
 | 面板 | Pellet Silo | 颗粒料仓 | Silo \u00e0 granul\u00e9s |

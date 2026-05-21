@@ -199,3 +199,155 @@ def get_daily_delta(col: str) -> float | None:
     if len(vals) < 2:
         return None
     return round(float(vals.iloc[-1]) - float(vals.iloc[0]), 1)
+
+
+# ─── Year-to-date / annual total (no resampling) ──────────────────────────────
+
+def _clean_sql(col: str) -> str:
+    """Build a SQL predicate from the column's column_map clean rule, so raw
+    queries skip the same anomalies get_live_df filters at display time."""
+    rule = (BY_DASHBOARD_COL.get(col, {}) or {}).get("clean") or {}
+    t = rule.get("type")
+    if t == "non_negative":
+        return f' AND "{col}" >= 0'
+    if t == "range":
+        return f' AND "{col}" >= {rule["min"]} AND "{col}" <= {rule["max"]}'
+    return ""
+
+
+def get_year_total(col: str, year: int) -> float | None:
+    """
+    Production during one calendar year for a cumulative counter:
+        value at end of year  −  value at end of previous year
+
+    - Current year → latest reading − last reading of previous year (YTD)
+    - Past year    → last reading of that year − last reading of previous year
+    - Earliest year with data (no prior-year baseline) → last − first within year
+
+    Cumulative counters are monotonic, so the year's production is the delta of
+    the counter across the year boundary. Uses LIMIT-1 index seeks (no full
+    load) and applies the column's clean rule to skip anomalous values.
+    """
+    if not DB_PATH.exists():
+        return None
+
+    year_start = f"{year}-01-01T00:00:00"
+    if year >= datetime.now().year:
+        end_bound = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+    else:
+        end_bound = f"{year}-12-31T23:59:59"
+
+    cln = _clean_sql(col)
+
+    def _one(conn, sql, params):
+        r = conn.execute(sql, params).fetchone()
+        return float(r[0]) if r and r[0] is not None else None
+
+    try:
+        with _open() as conn:
+            if not _table_exists(conn, "live_data"):
+                return None
+            # Last reading within year N
+            end_val = _one(conn,
+                f'SELECT "{col}" FROM live_data'
+                f' WHERE "Date Time" >= ? AND "Date Time" <= ?'
+                f' AND "{col}" IS NOT NULL{cln}'
+                f' ORDER BY "Date Time" DESC LIMIT 1',
+                (year_start, end_bound))
+            if end_val is None:
+                return None  # no data in this year
+
+            # First reading within year N (fallback baseline)
+            first_val = _one(conn,
+                f'SELECT "{col}" FROM live_data'
+                f' WHERE "Date Time" >= ? AND "Date Time" <= ?'
+                f' AND "{col}" IS NOT NULL{cln}'
+                f' ORDER BY "Date Time" ASC LIMIT 1',
+                (year_start, end_bound))
+
+            # Baseline = last reading BEFORE year N (carry-in from prior years)
+            base_val = _one(conn,
+                f'SELECT "{col}" FROM live_data'
+                f' WHERE "Date Time" < ? AND "{col}" IS NOT NULL{cln}'
+                f' ORDER BY "Date Time" DESC LIMIT 1',
+                (year_start,))
+    except Exception as e:
+        print(f"[data.get_year_total] {e}")
+        return None
+
+    # Standard cumulative delta: end of year N − end of year N-1.
+    if base_val is not None:
+        delta = end_val - base_val
+        # Counter reset/rollover across the year boundary → cross-year delta is
+        # negative and meaningless; fall back to the within-year delta.
+        if delta < 0 and first_val is not None:
+            delta = end_val - first_val
+    elif first_val is not None:
+        # Earliest year with data — no prior-year baseline.
+        delta = end_val - first_val
+    else:
+        return None
+
+    return round(delta, 1) if delta >= 0 else None
+
+
+def get_available_years() -> list[int]:
+    """Years covered by the data, ascending. Falls back to [current year]."""
+    current = datetime.now().year
+    mn, mx = get_db_time_range()
+    if mn is None:
+        return [current]
+    last = max(mx.year if mx else current, current)
+    return list(range(mn.year, last + 1))
+
+
+# ─── Sparse multi-column query (for hourly Silo/Dispatch panels) ──────────────
+
+def get_sparse_df(cols: list[str], start_date, end_date) -> pd.DataFrame:
+    """
+    Query only `cols` (+ Date Time) and only rows where at least one of them
+    is non-null. Silo/Dispatch sources are hourly, so even a 1-year range
+    returns a few thousand rows — far cheaper than get_live_df's SELECT * which
+    drags in every 30s Mill row. No resampling needed (already sparse).
+
+    Applies the same UTC→London conversion and column cleaning as get_live_df.
+    """
+    if not DB_PATH.exists():
+        return pd.DataFrame()
+
+    s = str(start_date)
+    e = str(end_date)
+    start_str = (s + "T00:00:00") if len(s) <= 10 else s[:19]
+    end_str   = (e + "T23:59:59") if len(e) <= 10 else e[:19]
+
+    quoted   = ", ".join(f'"{c}"' for c in cols)
+    not_null = " OR ".join(f'"{c}" IS NOT NULL' for c in cols)
+
+    try:
+        with _open() as conn:
+            if not _table_exists(conn, "live_data"):
+                return pd.DataFrame()
+            df = pd.read_sql_query(
+                f'SELECT "Date Time", {quoted} FROM live_data'
+                f' WHERE "Date Time" >= ? AND "Date Time" <= ?'
+                f' AND ({not_null})'
+                f' ORDER BY "Date Time"',
+                conn,
+                params=[start_str, end_str],
+            )
+    except Exception as ex:
+        print(f"[data.get_sparse_df] {ex}")
+        return pd.DataFrame()
+
+    if df.empty:
+        return df
+
+    df["Date Time"] = pd.to_datetime(df["Date Time"], errors="coerce")
+    df = df.dropna(subset=["Date Time"]).sort_values("Date Time").reset_index(drop=True)
+    df["Date Time"] = (
+        df["Date Time"].dt.tz_localize("UTC")
+        .dt.tz_convert(_TZ_LONDON)
+        .dt.tz_localize(None)
+    )
+    _apply_cleaning(df)
+    return df
